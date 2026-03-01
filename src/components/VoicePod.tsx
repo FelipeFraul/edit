@@ -17,14 +17,61 @@ const TALENTS = [
 type VoicePodProps = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  mobileDocked?: boolean
+  mobileRolloverProgress?: number
+  mobileReverseMotion?: boolean
 }
 
-export default function VoicePod({ open, onOpenChange }: VoicePodProps) {
+export default function VoicePod({
+  open,
+  onOpenChange,
+  mobileDocked = false,
+  mobileRolloverProgress = 0,
+  mobileReverseMotion = false,
+}: VoicePodProps) {
   const [internalOpen, setInternalOpen] = useState(false)
   const [items, setItems] = useState<string[]>(TALENTS.slice(0, 5))
+  const [viewportWidth, setViewportWidth] = useState(0)
   const podRef = useRef<HTMLDivElement | null>(null)
   const isControlled = typeof open === "boolean"
   const isOpen = isControlled ? Boolean(open) : internalOpen
+  const rollover = Math.max(0, Math.min(1, mobileRolloverProgress))
+  const isMobile = viewportWidth > 0 && viewportWidth < 640
+  const podWidth = isOpen ? 320 : 210
+  const downEnd = 0.82
+  const lateralStart = 0.78
+  const downProgress = Math.max(0, Math.min(1, rollover / downEnd))
+  const rawRightProgress = Math.max(0, Math.min(1, (rollover - lateralStart) / (1 - lateralStart)))
+  const rightProgress = rawRightProgress * rawRightProgress * (3 - 2 * rawRightProgress)
+  const startBottom = 112
+  const endBottom = 12
+  const bottomPx = mobileReverseMotion
+    ? endBottom
+    : startBottom + (endBottom - startBottom) * downProgress
+  const startCenterX = mobileReverseMotion ? viewportWidth + podWidth / 2 + 16 : viewportWidth / 2
+  const endCenterX = viewportWidth - 12 - podWidth / 2
+  const centerXPx = startCenterX + (endCenterX - startCenterX) * rightProgress
+  const baseCenterX = viewportWidth / 2
+  const deltaX = centerXPx - baseCenterX
+  const deltaY = (mobileDocked ? bottomPx : startBottom) - endBottom
+  const mobileVisible = !mobileReverseMotion || rightProgress > 0.01
+  const mobilePositionStyle = isMobile
+    ? {
+        left: "50%",
+        bottom: `${endBottom}px`,
+        transform: `translate3d(calc(-50% + ${deltaX}px), ${-deltaY}px, 0)`,
+        willChange: "transform",
+        opacity: mobileVisible ? Math.max(0, Math.min(1, rightProgress * 1.2 || 1)) : 0,
+        pointerEvents: mobileVisible ? ("auto" as const) : ("none" as const),
+      }
+    : undefined
+
+  useEffect(() => {
+    const syncViewport = () => setViewportWidth(window.innerWidth)
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    return () => window.removeEventListener("resize", syncViewport)
+  }, [])
 
   const setOpen = (next: boolean) => {
     if (!isControlled) setInternalOpen(next)
@@ -78,14 +125,15 @@ export default function VoicePod({ open, onOpenChange }: VoicePodProps) {
     <>
       <div
         ref={podRef}
-        className={`fixed bottom-[30px] right-6 z-[80] max-w-[calc(100vw-1.5rem)] transition-[width] duration-200 sm:right-12 lg:right-16 ${
+        className={`fixed z-[11] bottom-3 left-1/2 max-w-[calc(100vw-1.5rem)] -translate-x-1/2 transition-[width] duration-200 sm:bottom-[30px] sm:left-auto sm:right-12 sm:translate-x-0 lg:right-16 ${
           isOpen ? "w-[320px]" : "w-[210px]"
         }`}
+        style={mobilePositionStyle}
       >
         <div
           className={`px-3 text-white ${
             isOpen
-              ? "rounded-[24px] border border-white/20 bg-black/35 pb-3 pt-2 shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+              ? "rounded-[24px] border border-white/20 bg-black/35 pb-3 pt-2 shadow-[0_18px_50px_rgba(0,0,0,0.5)] sm:backdrop-blur-2xl"
               : "py-0"
           }`}
         >
@@ -94,7 +142,7 @@ export default function VoicePod({ open, onOpenChange }: VoicePodProps) {
               type="button"
               aria-label="Fechar agencia de vozes"
               onClick={toggleOpen}
-              className="btn-vozes font-secular relative w-full overflow-hidden rounded-none !border-white/30 !bg-black/45 !px-4 !text-[10px] !tracking-[0.22em] !text-white/95 backdrop-blur-md"
+              className="btn-vozes font-secular relative w-full overflow-hidden rounded-none !border-white/30 !bg-black/45 !px-4 !text-[10px] !tracking-[0.22em] !text-white/95 sm:backdrop-blur-md"
             >
               <span className="pointer-events-none relative z-10 flex h-full items-center justify-center gap-2">
                 <span>AGENCIA DE VOZES</span>

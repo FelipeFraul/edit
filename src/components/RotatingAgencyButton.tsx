@@ -14,13 +14,25 @@ function PlusCircleIcon() {
 
 export default function RotatingAgencyButton() {
   const [isLight, setIsLight] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
+    const syncViewport = () => setIsMobile(window.innerWidth < 640)
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    return () => window.removeEventListener("resize", syncViewport)
+  }, [])
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsLight(true)
+      return
+    }
     const timer = window.setInterval(() => {
       setIsLight((prev) => !prev)
     }, COLOR_SWAP_MS)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [isMobile])
 
   const goToSection04 = () => {
     const target = document.getElementById("secao-04")

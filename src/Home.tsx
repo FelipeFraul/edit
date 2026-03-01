@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import FeaturedHero from "./components/FeaturedHero"
 import FullscreenMenu from "./components/FullscreenMenu"
 import MediaModal from "./components/MediaModal"
@@ -10,6 +10,7 @@ import Section06 from "./components/Section06"
 import SocialBar from "./components/SocialBar"
 import {
   getHeroVariant,
+  getVariantMedia,
   heroVariants,
   type HeroVariant,
   type MediaItem,
@@ -20,6 +21,9 @@ const SHARED_BG_VIDEO = "https://www.youtube.com/embed/ehEqJZ_7fpc?autoplay=1&mu
 const clampPos = (value: number) =>
   Math.min(3, Math.max(-3, Math.round(value))) as -3 | -2 | -1 | 0 | 1 | 2 | 3
 
+const MOBILE_HEADER_SHOW_SCROLL_PX = 12
+const MOBILE_HEADER_HIDE_SCROLL_PX = 4
+
 const Home: React.FC = () => {
   const [pos, setPos] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0)
   const [mediaOpen, setMediaOpen] = useState(false)
@@ -28,10 +32,21 @@ const Home: React.FC = () => {
   const [logoTintStartPx, setLogoTintStartPx] = useState<number>(9999)
   const [logoTintColor, setLogoTintColor] = useState<string>("#4c007d")
   const [headerIsLight, setHeaderIsLight] = useState(false)
+  const [mobileHeaderBgVisible, setMobileHeaderBgVisible] = useState(false)
+  const [mobileRolloverProgress, setMobileRolloverProgress] = useState(0)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
   const mainRef = useRef<HTMLDivElement | null>(null)
   const logoRef = useRef<HTMLDivElement | null>(null)
 
   const variant = useMemo(() => getHeroVariant(pos), [pos])
+  const mobileReveal = isMobileViewport ? Math.max(0, Math.min(1, mobileRolloverProgress * 3)) : 0
+
+  useEffect(() => {
+    const syncViewport = () => setIsMobileViewport(window.innerWidth < 640)
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    return () => window.removeEventListener("resize", syncViewport)
+  }, [])
 
   useEffect(() => {
     const root = mainRef.current
@@ -47,6 +62,23 @@ const Home: React.FC = () => {
     if (!hero && !secao01 && !secao02 && !secao04 && !secao05 && !secao06) return
 
     const syncLogoCut = () => {
+      const isMobile = window.innerWidth < 640
+      const scrollTop = root.scrollTop
+      if (isMobile) {
+        setMobileHeaderBgVisible((prev) => {
+          if (!prev) return scrollTop >= MOBILE_HEADER_SHOW_SCROLL_PX
+          return scrollTop > MOBILE_HEADER_HIDE_SCROLL_PX
+        })
+      } else {
+        setMobileHeaderBgVisible(false)
+      }
+      setMobileRolloverProgress(isMobile ? Math.min(1, Math.max(0, scrollTop / 200)) : 0)
+      if (isMobile) {
+        setHeaderIsLight(false)
+        setLogoTintColor("#ffffff")
+        setLogoTintStartPx(0)
+        return
+      }
       const logoRect = logoEl.getBoundingClientRect()
       const targets = [
         hero
@@ -97,12 +129,22 @@ const Home: React.FC = () => {
       setLogoTintStartPx(lineY - logoRect.top)
     }
 
+    let rafId: number | null = null
+    const scheduleSync = () => {
+      if (rafId !== null) return
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null
+        syncLogoCut()
+      })
+    }
+
     syncLogoCut()
-    root.addEventListener("scroll", syncLogoCut, { passive: true })
-    window.addEventListener("resize", syncLogoCut)
+    root.addEventListener("scroll", scheduleSync, { passive: true })
+    window.addEventListener("resize", scheduleSync)
     return () => {
-      root.removeEventListener("scroll", syncLogoCut)
-      window.removeEventListener("resize", syncLogoCut)
+      root.removeEventListener("scroll", scheduleSync)
+      window.removeEventListener("resize", scheduleSync)
+      if (rafId !== null) window.cancelAnimationFrame(rafId)
     }
   }, [])
 
@@ -111,18 +153,19 @@ const Home: React.FC = () => {
   }
 
   const openMedia = (current: HeroVariant) => {
+    const currentMedia = getVariantMedia(current, isMobileViewport)
     const idx = heroVariants.findIndex((entry) => entry.pos === current.pos)
     setMediaIndex(idx >= 0 ? idx : 0)
     const fallback: MediaItem = {
-      who: current.client,
-      when: current.year,
-      category: current.category,
-      title: current.title,
-      subtitle: current.subtitle,
+      who: "",
+      when: "",
+      category: "",
+      title: "",
+      subtitle: "",
       videoSrc: "",
       poster: "",
     }
-    setMediaItem(current.media ?? fallback)
+    setMediaItem(currentMedia ?? fallback)
     setMediaOpen(true)
   }
 
@@ -132,21 +175,22 @@ const Home: React.FC = () => {
     const nextIndex = (mediaIndex + direction + total) % total
     const nextVariant = heroVariants[nextIndex]
     const fallback: MediaItem = {
-      who: nextVariant.client,
-      when: nextVariant.year,
-      category: nextVariant.category,
-      title: nextVariant.title,
-      subtitle: nextVariant.subtitle,
+      who: "",
+      when: "",
+      category: "",
+      title: "",
+      subtitle: "",
       videoSrc: "",
       poster: "",
     }
+    const nextMedia = getVariantMedia(nextVariant, isMobileViewport)
     setMediaIndex(nextIndex)
-    setMediaItem(nextVariant.media ?? fallback)
+    setMediaItem(nextMedia ?? fallback)
   }
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+      <div className="pointer-events-none fixed inset-0 z-0 hidden overflow-hidden sm:block" aria-hidden="true">
         <iframe
           className="absolute left-1/2 top-1/2 h-[1080px] w-[1920px] -translate-x-1/2 -translate-y-1/2 border-0"
           src={SHARED_BG_VIDEO}
@@ -156,15 +200,33 @@ const Home: React.FC = () => {
           allowFullScreen
         />
       </div>
-      <main className="relative z-10 h-screen overflow-visible">
-        <div ref={mainRef} className="app-scroll h-screen overflow-y-auto snap-y snap-mandatory overscroll-y-contain">
-          <div className="pointer-events-none fixed left-0 top-0 z-30 w-full px-6 pt-6 sm:px-12 sm:pt-8 lg:px-16">
-            <div className="pointer-events-auto flex items-center justify-between gap-6">
+      <main className="relative h-[100svh] overflow-visible sm:h-screen">
+        <div
+          ref={mainRef}
+          className="app-scroll h-[100svh] overflow-y-auto snap-none sm:h-screen sm:snap-y sm:snap-mandatory overscroll-y-contain"
+        >
+          <div className="pointer-events-none absolute left-0 top-0 z-[1100] w-full px-0 pt-0 sm:fixed sm:z-30 sm:px-12 sm:pt-8 lg:px-16">
+            <div
+              className="pointer-events-auto relative flex w-full items-center justify-between gap-6 overflow-hidden border-0 px-6 py-3 sm:w-auto sm:border sm:border-transparent sm:bg-transparent sm:px-0 sm:py-0 sm:transition-colors sm:duration-150"
+            >
+              <span
+                aria-hidden="true"
+                className="absolute -inset-px origin-top bg-black/90 sm:hidden"
+                style={{
+                  transform: `scaleY(${mobileReveal})`,
+                  opacity: mobileHeaderBgVisible ? 1 : 0,
+                  transformOrigin: "top",
+                  transition: "transform 180ms linear, opacity 140ms linear",
+                }}
+              />
               <a className="inline-flex items-center" href="/" aria-label="Home">
-                <div ref={logoRef} className="relative h-16 w-[160px]">
+                <div
+                  ref={logoRef}
+                  className="relative h-12 w-[120px] sm:h-16 sm:w-[160px] sm:transition-[width,height] sm:duration-200"
+                >
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 block h-16 w-[160px]"
+                    className="pointer-events-none absolute inset-0 block h-full w-full"
                     style={{
                       backgroundColor: "#ffffff",
                       WebkitMaskImage: "url('/assets/logotipo/logo_edit_group.webp')",
@@ -179,7 +241,7 @@ const Home: React.FC = () => {
                   />
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 block h-16 w-[160px]"
+                    className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block"
                     style={{
                       backgroundColor: logoTintColor,
                       clipPath: `inset(${logoTintStartPx}px 0 0 0)`,
@@ -196,16 +258,28 @@ const Home: React.FC = () => {
                   <img
                     src="/assets/logotipo/logo_edit_group.webp"
                     alt="Edit Group"
-                    className="absolute inset-0 h-16 w-auto max-w-none opacity-0"
+                    className="absolute inset-0 h-full w-full object-contain opacity-0"
                     draggable={false}
                   />
                 </div>
               </a>
-              <FullscreenMenu isLight={headerIsLight} />
+              <FullscreenMenu isLight={isMobileViewport ? false : headerIsLight} />
             </div>
           </div>
 
-          <div id="hero" className="snap-start snap-always">
+          <div id="hero" className="relative overflow-hidden sm:snap-start sm:snap-always">
+            <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden sm:hidden" aria-hidden="true">
+              <video
+                className="absolute left-1/2 top-1/2 h-[1080px] w-[1920px] -translate-x-1/2 -translate-y-1/2 object-cover sm:hidden"
+                src="/assets/video/Edit_Group_Hero.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                disablePictureInPicture
+              />
+            </div>
             <FeaturedHero
               variant={variant}
               onOpenMedia={openMedia}
@@ -213,6 +287,9 @@ const Home: React.FC = () => {
               onDialChange={handleChange}
               onDialPush={() => openMedia(variant)}
               showHeader={false}
+              mobileScrolled={isMobileViewport}
+              mobileRolloverProgress={mobileRolloverProgress}
+              isMobileViewport={isMobileViewport}
             />
           </div>
 
@@ -235,7 +312,21 @@ const Home: React.FC = () => {
           />
         </div>
       </main>
-      <SocialBar />
+      <div
+        className="pointer-events-none fixed bottom-0 left-0 z-[10] h-[64px] w-full origin-bottom bg-black/90 sm:hidden"
+        style={{
+          transform: `scaleY(${mobileReveal})`,
+          opacity: mobileHeaderBgVisible ? 1 : 0,
+          transformOrigin: "bottom",
+          transition: "transform 180ms linear, opacity 140ms linear",
+        }}
+        aria-hidden="true"
+      />
+      <SocialBar
+        mobileRolloverProgress={mobileRolloverProgress}
+        mobileDocked={isMobileViewport}
+        mobileReverseMotion={pos !== 0}
+      />
     </>
   )
 }

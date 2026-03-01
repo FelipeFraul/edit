@@ -24,13 +24,14 @@ const DEFAULT_ITEMS: MenuItem[] = [
 export default function FullscreenMenu({ items, isLight = false }: FullscreenMenuProps) {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
   const menuBtnRef = useRef<HTMLButtonElement | null>(null)
   const firstLinkRef = useRef<HTMLAnchorElement | null>(null)
   const menuItems = useMemo(() => items ?? DEFAULT_ITEMS, [items])
   const buttonPillClass = [
     "group relative z-10 inline-flex items-center justify-center overflow-hidden",
-    "btn-vozes font-secular min-w-[128px]",
-    "backdrop-blur-md",
+    "btn-vozes font-secular h-10 w-10 px-0 py-0 sm:h-auto sm:w-auto sm:min-w-[128px] sm:px-6 sm:py-3",
+    "sm:backdrop-blur-md",
     "!rounded-none",
     "menu-cursor touch-none",
     "focus:!shadow-none focus-visible:!shadow-none",
@@ -46,6 +47,15 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
   const menuLabelThemeClass = isLight
     ? 'pointer-events-none relative inline-flex items-center justify-center text-[10px] font-semibold tracking-[0.2em] text-white transition-colors group-hover:text-white [font-family:"Space_Grotesk","Neue_Haas_Grotesk","Helvetica_Neue",Arial,sans-serif]'
     : 'pointer-events-none relative inline-flex items-center justify-center text-[10px] font-semibold tracking-[0.2em] text-white/55 transition-colors group-hover:text-white/85 [font-family:"Space_Grotesk","Neue_Haas_Grotesk","Helvetica_Neue",Arial,sans-serif]'
+  const menuIconThemeClass = isLight
+    ? 'pointer-events-none relative inline-flex items-center justify-center text-white transition-colors group-hover:text-white'
+    : 'pointer-events-none relative inline-flex items-center justify-center text-white/70 transition-colors group-hover:text-white/90'
+  const closeButtonClass = [
+    "group relative z-10 inline-flex h-10 w-10 items-center justify-center overflow-hidden",
+    "btn-vozes px-0 py-0 !rounded-none",
+    "menu-cursor touch-none",
+    "focus:!shadow-none focus-visible:!shadow-none",
+  ].join(" ")
 
   useEffect(() => {
     if (!open) return
@@ -58,6 +68,13 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    const syncViewport = () => setIsMobileViewport(window.innerWidth < 640)
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    return () => window.removeEventListener("resize", syncViewport)
   }, [])
 
   useEffect(() => {
@@ -124,28 +141,52 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
   }
 
   const overlayVariants = {
-    open: () => ({
-      x: ["100%", "-3%", "2%", "0%"],
-      y: 0,
-      scaleX: [0.995, 1.01, 0.998, 1],
-      opacity: [0, 1, 1, 1],
-      filter: ["blur(6px)", "blur(2px)", "blur(1px)", "blur(0px)"],
-      transition: {
-        duration: 0.9,
-        ease: [0.22, 1, 0.36, 1],
-      },
-    }),
-    closed: () => ({
-      x: "100%",
-      y: 0,
-      scaleX: 0.995,
-      opacity: 0,
-      filter: "blur(6px)",
-      transition: {
-        duration: 0.38,
-        ease: [0.4, 0, 0.2, 1],
-      },
-    }),
+    open: () =>
+      isMobileViewport
+        ? {
+            x: ["100%", "0%"],
+            y: 0,
+            scaleX: [1, 1],
+            opacity: [0, 1],
+            transition: {
+              duration: 0.42,
+              ease: [0.22, 1, 0.36, 1],
+            },
+          }
+        : {
+            x: ["100%", "-3%", "2%", "0%"],
+            y: 0,
+            scaleX: [0.995, 1.01, 0.998, 1],
+            opacity: [0, 1, 1, 1],
+            filter: ["blur(6px)", "blur(2px)", "blur(1px)", "blur(0px)"],
+            transition: {
+              duration: 0.9,
+              ease: [0.22, 1, 0.36, 1],
+            },
+          },
+    closed: () =>
+      isMobileViewport
+        ? {
+            x: "100%",
+            y: 0,
+            scaleX: 1,
+            opacity: 0,
+            transition: {
+              duration: 0.28,
+              ease: [0.4, 0, 0.2, 1],
+            },
+          }
+        : {
+            x: "100%",
+            y: 0,
+            scaleX: 0.995,
+            opacity: 0,
+            filter: "blur(6px)",
+            transition: {
+              duration: 0.38,
+              ease: [0.4, 0, 0.2, 1],
+            },
+          },
   }
 
   const itemVariants = {
@@ -172,6 +213,15 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
     return null
   }
 
+  useEffect(() => {
+    if (!isMobileViewport) return
+    const iconSources = DEFAULT_ITEMS.map((entry) => getIconSrc(entry.label)).filter(Boolean) as string[]
+    iconSources.forEach((src) => {
+      const img = new Image()
+      img.src = src
+    })
+  }, [isMobileViewport])
+
   return (
     <div className="relative">
       <button
@@ -182,7 +232,8 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
         aria-controls="liquid-menu"
         onClick={handleOpen}
       >
-        <span className={menuLabelThemeClass}>MENU</span>
+        <span className={`${menuIconThemeClass} text-[18px] leading-none sm:hidden`}>☰</span>
+        <span className={`${menuLabelThemeClass} hidden sm:inline-flex`}>MENU</span>
       </button>
 
       {mounted
@@ -192,7 +243,7 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
                 <motion.div
                   key="overlay"
                   id="liquid-menu"
-                  className="fixed inset-0 z-[3000] h-[100dvh] w-[100dvw] overflow-hidden origin-right will-change-transform"
+                  className="fixed inset-0 z-[3000] h-[100svh] w-[100svw] overflow-hidden origin-right will-change-transform"
                   onClick={() => setOpen(false)}
                   initial="closed"
                   animate="open"
@@ -206,30 +257,44 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
                     className="relative h-full w-full px-8 pt-8 pb-0 sm:px-12 sm:pt-10 sm:pb-0"
                     onClick={(event) => event.stopPropagation()}
                   >
+                    <div className="absolute right-8 top-8 z-20 sm:right-12 sm:top-10">
+                      <button
+                        type="button"
+                        className={isMobileViewport ? closeButtonClass : `${buttonPillClass} mb-1 shrink-0`}
+                        onClick={() => setOpen(false)}
+                        aria-label="Fechar menu"
+                      >
+                        {isMobileViewport ? (
+                          <span className={`${overlayButtonLabelClass} text-[16px] !tracking-[0.08em] text-white/90`}>X</span>
+                        ) : (
+                          <span className={overlayButtonLabelClass}>FECHAR</span>
+                        )}
+                      </button>
+                    </div>
                     <motion.nav
-                      className="flex h-full w-full items-stretch justify-center overflow-y-auto overflow-x-hidden pb-[max(24px,env(safe-area-inset-bottom))]"
+                      className="flex h-full w-full items-stretch justify-center overflow-y-auto overflow-x-hidden pt-12 sm:pt-0 pb-[max(24px,env(safe-area-inset-bottom))]"
                       aria-label="Menu principal"
                       initial="closed"
                       animate="open"
                       exit="closed"
                     >
                       <div className="flex min-h-0 w-full flex-col justify-start">
-                        <motion.ul className="w-full">
+                        <motion.ul className="flex h-full w-full flex-col">
                           <div className="-mx-8 h-px w-[calc(100%+4rem)] bg-white/15 sm:-mx-12 sm:w-[calc(100%+6rem)]" />
 
                           {menuItems.map((item, index) => (
-                            <motion.li key={item.href} variants={itemVariants}>
+                            <motion.li key={item.href} variants={itemVariants} className="flex min-h-0 flex-1 flex-col justify-center">
                               <div className="flex items-center gap-4">
                                 <a
                                   ref={index === 0 ? firstLinkRef : null}
                                   href={item.href}
-                                  className="flex-1 select-none pt-3 pb-2 text-left text-[33px] font-semibold tracking-[0.06em] text-white/95 transition hover:translate-x-1 hover:text-white focus:outline-none focus-visible:ring-0 sm:text-[45px] lg:text-[56px] font-secular"
+                                  className="flex-1 select-none py-0 text-left text-[33px] font-semibold tracking-[0.06em] text-white/95 transition hover:translate-x-1 hover:text-white focus:outline-none focus-visible:ring-0 sm:pt-3 sm:pb-2 sm:text-[45px] lg:text-[56px] font-secular"
                                   onClick={(event) => {
                                     event.preventDefault()
                                     handleNavigate(item.href)
                                   }}
                                 >
-                                  <span className="flex flex-wrap items-baseline gap-4 text-left">
+                                  <span className={isMobileViewport ? "flex items-center gap-4 text-left whitespace-nowrap" : "flex flex-wrap items-baseline gap-4 text-left"}>
                                     {getIconSrc(item.label) ? (
                                       <span className="inline-flex w-[0.95em] items-center justify-start">
                                         <img
@@ -244,7 +309,7 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
                                       </span>
                                     ) : null}
                                     <span>{item.label}</span>
-                                    {getDescriptor(item.label) ? (
+                                    {!isMobileViewport && getDescriptor(item.label) ? (
                                       <>
                                         <span className="font-semibold text-white/70">/</span>
                                         <span className="text-[calc(0.47em)] font-semibold tracking-[0.18em] text-white/70">
@@ -254,24 +319,11 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
                                     ) : null}
                                   </span>
                                 </a>
-                                {index === 0 ? (
-                                  <button
-                                    type="button"
-                                    className={`${buttonPillClass} mb-1 shrink-0`}
-                                    onClick={() => setOpen(false)}
-                                  >
-                                    <span className={overlayButtonLabelClass}>FECHAR</span>
-                                  </button>
-                                ) : null}
                               </div>
 
-                              {index < menuItems.length - 1 ? (
-                                <div className="-mx-8 h-px w-[calc(100%+4rem)] bg-white/15 sm:-mx-12 sm:w-[calc(100%+6rem)]" />
-                              ) : null}
+                              <div className="-mx-8 h-px w-[calc(100%+4rem)] bg-white/15 sm:-mx-12 sm:w-[calc(100%+6rem)]" />
                             </motion.li>
                           ))}
-
-                          <div className="-mx-8 h-px w-[calc(100%+4rem)] bg-white/15 sm:-mx-12 sm:w-[calc(100%+6rem)]" />
                         </motion.ul>
                       </div>
                     </motion.nav>

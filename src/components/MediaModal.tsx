@@ -19,6 +19,8 @@ export default function MediaModal({
   onNext,
 }: MediaModalProps) {
   const [mounted, setMounted] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [isMobileLandscape, setIsMobileLandscape] = useState(false)
   const closeBtnRef = useRef<HTMLButtonElement | null>(null)
   const [hasScrolled, setHasScrolled] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -44,6 +46,17 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    const syncViewport = () => {
+      const isMobile = window.innerWidth < 640
+      setIsMobileViewport(isMobile)
+      setIsMobileLandscape(isMobile && window.innerWidth > window.innerHeight)
+    }
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    return () => window.removeEventListener("resize", syncViewport)
   }, [])
 
   useEffect(() => {
@@ -82,6 +95,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
   }, [])
 
   const isVimeo = Boolean(item?.videoSrc?.includes("vimeo.com"))
+  const mobileFullscreenPlayer = isMobileViewport && isMobileLandscape
   const vimeoPlayerId = "media-modal-player"
   const normalizeVimeoUrl = (raw?: string, autoplay = 0, muted = 1) => {
     if (!raw) return ""
@@ -172,7 +186,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
           onClick={onClose}
         >
           <motion.div
-            className="relative h-full w-full overflow-y-auto px-6 py-10 sm:px-10"
+            className="relative h-full w-full overflow-y-auto px-6 pt-20 pb-10 sm:px-10 sm:py-10"
             onClick={(event: React.MouseEvent<HTMLDivElement>) => event.stopPropagation()}
             onScroll={(event: React.UIEvent<HTMLDivElement>) => {
               const target = event.currentTarget
@@ -183,16 +197,28 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
               ref={closeBtnRef}
               type="button"
               aria-label="Fechar modal"
-              className="btn-vozes !rounded-none font-secular absolute right-6 top-6 sm:right-10 sm:top-8"
+              className={`absolute right-6 top-6 sm:right-10 sm:top-8 ${
+                isMobileViewport
+                  ? "btn-vozes inline-flex h-10 w-10 items-center justify-center !rounded-none px-0 py-0"
+                  : "btn-vozes !rounded-none font-secular"
+              }`}
               onClick={onClose}
             >
-              FECHAR
+              {isMobileViewport ? "X" : "FECHAR"}
             </button>
 
-            <div className="mx-auto mt-0 w-full max-w-6xl rounded-[32px] bg-black/60 px-6 pb-6 pt-0 backdrop-blur-xl sm:px-8 sm:pb-8 sm:pt-0">
-              <div className="flex w-full flex-col items-center gap-6">
+            <div className={`mx-auto mt-0 w-full ${
+              isMobileViewport
+                ? "max-w-none rounded-none bg-transparent px-0 pb-6 pt-0"
+                : "max-w-6xl rounded-[32px] bg-black/60 px-6 pb-6 pt-0 backdrop-blur-xl"
+            } sm:max-w-6xl sm:rounded-[32px] sm:bg-black/60 sm:px-8 sm:pb-8 sm:pt-0 sm:backdrop-blur-xl`}>
+              <div className="flex w-full flex-col items-stretch gap-6 sm:items-center">
                 <motion.div
-                  className="w-full overflow-hidden rounded-2xl border border-white/10 bg-black/90 shadow-[0_30px_90px_rgba(0,0,0,0.75)]"
+                  className={`overflow-hidden bg-black/90 ${
+                    isMobileViewport
+                      ? "relative -left-6 w-screen rounded-none border-0 shadow-none"
+                      : "w-full rounded-2xl border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.75)]"
+                  } sm:w-full sm:rounded-2xl sm:border sm:border-white/10 sm:shadow-[0_30px_90px_rgba(0,0,0,0.75)]`}
                   initial={{ opacity: 0, y: -40 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
@@ -204,7 +230,11 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                         <iframe
                           ref={vimeoIframeRef}
                           id={vimeoPlayerId}
-                          className="relative z-0 aspect-[21/9] h-auto w-full"
+                          className={`relative z-0 ${
+                            mobileFullscreenPlayer
+                              ? "h-[100svh] w-screen"
+                              : "aspect-video h-auto w-screen"
+                          } sm:aspect-[21/9] sm:h-auto sm:w-full`}
                           src={vimeoSrc}
                           title={item.title ?? "Video"}
                           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
@@ -214,17 +244,33 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                       ) : hasStarted ? (
                         <video
                           ref={videoRef}
-                          className="relative z-0 aspect-[21/9] h-auto w-full"
+                          className={`relative z-0 ${
+                            mobileFullscreenPlayer
+                              ? "h-[100svh] w-screen object-cover"
+                              : "h-auto w-screen object-contain"
+                          } sm:aspect-[21/9] sm:h-auto sm:w-full`}
                           src={item.videoSrc}
                           poster={item.poster}
                           playsInline
                           preload="metadata"
                         />
                       ) : (
-                        <div className="flex aspect-[21/9] items-center justify-center bg-black/90 text-xs font-semibold tracking-[0.3em] text-white/60" />
+                        <div
+                          className={`flex items-center justify-center bg-black/90 text-xs font-semibold tracking-[0.3em] text-white/60 ${
+                            mobileFullscreenPlayer
+                              ? "h-[100svh] w-screen"
+                              : "aspect-video h-auto w-screen"
+                          } sm:aspect-[21/9] sm:h-auto sm:w-full`}
+                        />
                       )
                     ) : (
-                      <div className="flex aspect-[21/9] items-center justify-center bg-black/90 text-xs font-semibold tracking-[0.3em] text-white/60">
+                      <div
+                        className={`flex items-center justify-center bg-black/90 text-xs font-semibold tracking-[0.3em] text-white/60 ${
+                          mobileFullscreenPlayer
+                            ? "h-[100svh] w-screen"
+                            : "aspect-video h-auto w-screen"
+                        } sm:aspect-[21/9] sm:h-auto sm:w-full`}
+                      >
                         MIDIA EM BREVE
                       </div>
                     )}
@@ -245,7 +291,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                       </div>
                     ) : null}
 
-                    {onPrev ? (
+                    {onPrev && !isMobileViewport ? (
                       <button
                         type="button"
                         aria-label="Anterior"
@@ -255,7 +301,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                       〈
                     </button>
                   ) : null}
-                  {onNext ? (
+                  {onNext && !isMobileViewport ? (
                     <button
                       type="button"
                       aria-label="Próximo"
@@ -271,7 +317,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                 <div className="w-full max-w-6xl pb-6">
                   <div className="mt-10 flex w-full flex-col gap-8 text-left sm:flex-row sm:gap-12">
                     <div className="w-full sm:w-[40%]">
-                      <div className="text-[40px] leading-tight font-thin tracking-[0.06em] text-white font-secular">
+                      <div className="text-[34px] leading-tight font-thin tracking-[0.06em] text-white font-secular sm:text-[40px]">
                         {item?.title ?? ""}
                       </div>
                       <div className="mt-6 grid grid-cols-1 gap-6 text-left text-[11px] uppercase tracking-[0.3em] text-white/70">

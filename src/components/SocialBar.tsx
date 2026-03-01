@@ -17,6 +17,12 @@ type SocialIconButtonProps = {
   className?: string
 }
 
+type SocialBarProps = {
+  mobileRolloverProgress?: number
+  mobileDocked?: boolean
+  mobileReverseMotion?: boolean
+}
+
 function SocialIconButton({
   label,
   iconSrc,
@@ -61,7 +67,19 @@ function SocialIconButton({
   )
 }
 
-export default function SocialBar() {
+export default function SocialBar({
+  mobileRolloverProgress = 0,
+  mobileDocked = false,
+  mobileReverseMotion = false,
+}: SocialBarProps) {
+  const [viewportWidth, setViewportWidth] = React.useState(0)
+  React.useEffect(() => {
+    const syncViewport = () => setViewportWidth(window.innerWidth)
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    return () => window.removeEventListener("resize", syncViewport)
+  }, [])
+
   const socialItems = [
     {
       label: "WhatsApp",
@@ -80,42 +98,7 @@ export default function SocialBar() {
     {
       label: "Instagram",
       iconSrc: "/assets/icon/instagram.svg",
-      iconToneClass: "brightness-0 invert",
-      iconOpacityClass: "opacity-30 group-hover:opacity-100",
-      tooltipBgClass: "bg-black/75",
-      tooltipBorderClass: "border-white/25",
-      tooltipTextClass: "text-white/90",
-    },
-    {
-      label: "Facebook",
-      iconSrc: "/assets/icon/facebook.svg",
-      iconToneClass: "brightness-0 invert",
-      iconOpacityClass: "opacity-30 group-hover:opacity-100",
-      tooltipBgClass: "bg-black/75",
-      tooltipBorderClass: "border-white/25",
-      tooltipTextClass: "text-white/90",
-    },
-    {
-      label: "TikTok",
-      iconSrc: "/assets/icon/tiktok.svg",
-      iconToneClass: "brightness-0 invert",
-      iconOpacityClass: "opacity-30 group-hover:opacity-100",
-      tooltipBgClass: "bg-black/75",
-      tooltipBorderClass: "border-white/25",
-      tooltipTextClass: "text-white/90",
-    },
-    {
-      label: "X",
-      iconSrc: "/assets/icon/x.svg",
-      iconToneClass: "brightness-0 invert",
-      iconOpacityClass: "opacity-30 group-hover:opacity-100",
-      tooltipBgClass: "bg-black/75",
-      tooltipBorderClass: "border-white/25",
-      tooltipTextClass: "text-white/90",
-    },
-    {
-      label: "YouTube",
-      iconSrc: "/assets/icon/youtube.svg",
+      iconClassName: "h-[0.975rem] w-[0.975rem] sm:h-3 sm:w-3",
       iconToneClass: "brightness-0 invert",
       iconOpacityClass: "opacity-30 group-hover:opacity-100",
       tooltipBgClass: "bg-black/75",
@@ -125,6 +108,7 @@ export default function SocialBar() {
     {
       label: "Vimeo",
       iconSrc: "/assets/icon/vimeo.svg",
+      iconClassName: "h-[0.975rem] w-[0.975rem] sm:h-3 sm:w-3",
       iconToneClass: "brightness-0 invert",
       iconOpacityClass: "opacity-30 group-hover:opacity-100",
       tooltipBgClass: "bg-black/75",
@@ -133,14 +117,62 @@ export default function SocialBar() {
     },
   ]
 
+  const rollover = Math.max(0, Math.min(1, mobileRolloverProgress))
+  const isMobile = viewportWidth > 0 && viewportWidth < 640
+  const podWidth = 210
+  const lateralStart = 0.78
+  const rawRightProgress = Math.max(0, Math.min(1, (rollover - lateralStart) / (1 - lateralStart)))
+  const rightProgress = rawRightProgress * rawRightProgress * (3 - 2 * rawRightProgress)
+  const startCenterX = viewportWidth / 2
+  const endCenterX = viewportWidth - 12 - podWidth / 2
+  const buttonCenterX = startCenterX + (endCenterX - startCenterX) * rightProgress
+  const buttonStartX = buttonCenterX - podWidth / 2
+  const targetCenterX = buttonStartX / 2
+  const mobileBarWidth = 128
+  const targetLeft = Math.max(0, targetCenterX - mobileBarWidth / 2)
+  const startFromRight = viewportWidth + 16
+  const currentLeft = mobileReverseMotion
+    ? startFromRight + (targetLeft - startFromRight) * rightProgress
+    : targetLeft * rightProgress
+  const mobileVisible = isMobile && mobileDocked && rightProgress > 0.01
+
   return (
-    <div className="fixed left-[-5px] top-1/2 z-[80] -translate-y-1/2">
+    <>
+      <div className="fixed left-[-5px] top-1/2 z-[80] hidden -translate-y-1/2 sm:block">
+        <div
+          className={`flex w-12 flex-col items-center gap-5 rounded-none border px-1.5 py-5 text-white backdrop-blur-2xl ${BAR_BORDER_CLASS} ${BAR_BG_CLASS}`}
+        >
+          {socialItems.map((item) => (
+            <SocialIconButton
+              key={item.label}
+              label={item.label}
+              iconSrc={item.iconSrc}
+              iconClassName={item.iconClassName}
+              iconToneClass={item.iconToneClass}
+              iconOpacityClass={item.iconOpacityClass}
+              iconStyle={item.iconStyle}
+              iconNormalFilter={item.iconNormalFilter}
+              tooltipBgClass={item.tooltipBgClass}
+              tooltipBorderClass={item.tooltipBorderClass}
+              tooltipTextClass={item.tooltipTextClass}
+            />
+          ))}
+        </div>
+      </div>
+
       <div
-        className={`flex w-12 flex-col items-center gap-5 rounded-none border px-1.5 py-5 text-white backdrop-blur-2xl ${BAR_BORDER_CLASS} ${BAR_BG_CLASS}`}
+        className="fixed bottom-3 z-[11] flex w-[128px] items-center justify-between px-2 py-2 text-white sm:hidden"
+        style={{
+          left: 0,
+          transform: `translate3d(${currentLeft}px, 0, 0)`,
+          willChange: "transform",
+          opacity: mobileVisible ? Math.max(0, Math.min(1, rightProgress * 1.2)) : 0,
+          pointerEvents: mobileVisible ? "auto" : "none",
+        }}
       >
         {socialItems.map((item) => (
           <SocialIconButton
-            key={item.label}
+            key={`mobile-${item.label}`}
             label={item.label}
             iconSrc={item.iconSrc}
             iconClassName={item.iconClassName}
@@ -148,12 +180,10 @@ export default function SocialBar() {
             iconOpacityClass={item.iconOpacityClass}
             iconStyle={item.iconStyle}
             iconNormalFilter={item.iconNormalFilter}
-            tooltipBgClass={item.tooltipBgClass}
-            tooltipBorderClass={item.tooltipBorderClass}
-            tooltipTextClass={item.tooltipTextClass}
+            className="!transition-none"
           />
         ))}
       </div>
-    </div>
+    </>
   )
 }

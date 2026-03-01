@@ -15,6 +15,15 @@ const Section02: React.FC = () => {
   const sectionRef = useRef<HTMLElement | null>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [activeInfoCard, setActiveInfoCard] = useState<Section02CardKey | null>(null)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const activeInfoCardDesktop = isMobileViewport ? null : activeInfoCard
+
+  useEffect(() => {
+    const syncViewport = () => setIsMobileViewport(window.innerWidth < 640)
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    return () => window.removeEventListener("resize", syncViewport)
+  }, [])
 
   useEffect(() => {
     const target = sectionRef.current
@@ -40,7 +49,7 @@ const Section02: React.FC = () => {
       ref={sectionRef}
       id="secao-01"
       data-header-theme="dark"
-      className={`relative isolate h-[100svh] snap-start snap-always overflow-hidden bg-transparent ${
+      className={`relative isolate h-auto sm:h-[100svh] overflow-visible sm:snap-start sm:snap-always sm:overflow-hidden bg-transparent ${
         isVisible ? "sec02-visible" : ""
       }`}
     >
@@ -89,6 +98,29 @@ const Section02: React.FC = () => {
           will-change: transform, opacity, filter;
           pointer-events: auto;
         }
+        @media (max-width: 639px) {
+          .sec02-enter {
+            opacity: 1;
+            transform: none;
+            filter: none;
+            pointer-events: auto;
+          }
+          .sec02-visible .sec02-enter {
+            animation: none;
+            will-change: auto;
+          }
+          .sec02-info-card:hover {
+            background: transparent;
+            background-image: none;
+          }
+          .sec02-info-card:hover .sec02-card-icon {
+            transform: none;
+          }
+          .sec02-info-card:hover .sec02-card-copy {
+            filter: none;
+            opacity: 1;
+          }
+        }
         .sec02-about-base {
           transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.22, 1, 0.36, 1), filter 420ms cubic-bezier(0.22, 1, 0.36, 1);
         }
@@ -134,10 +166,16 @@ const Section02: React.FC = () => {
           background: #2F2C79;
           background-image: linear-gradient(134deg, rgba(47, 44, 121, 1) 0%, rgba(127, 0, 178, 1) 48%, rgba(47, 44, 121, 1) 100%);
         }
+        @media (max-width: 639px) {
+          .sec02-fluid-bg,
+          .sec02-grain-bg {
+            animation: none !important;
+          }
+        }
       `}</style>
 
       <div
-        className="absolute inset-0"
+        className="sec02-fluid-bg absolute inset-0"
         aria-hidden="true"
         style={{
           backgroundColor: "#003FFF",
@@ -156,7 +194,7 @@ const Section02: React.FC = () => {
         }}
       />
       <div
-        className="absolute inset-0"
+        className="sec02-grain-bg absolute inset-0"
         aria-hidden="true"
         style={{
           backgroundImage: "radial-gradient(rgba(255,255,255,0.12) 0.7px, transparent 0.7px)",
@@ -168,8 +206,8 @@ const Section02: React.FC = () => {
         }}
       />
 
-      <div className="relative z-10 m-4 grid h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-[28px] px-6 sm:px-12 lg:px-16">
-        <div className="flex items-center justify-center px-6 pt-24 sm:px-12 sm:pt-28 lg:px-16">
+      <div className="relative z-10 m-0 grid h-auto sm:m-4 sm:h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-none sm:rounded-[28px] px-6 sm:px-12 lg:px-16">
+        <div className="flex items-center justify-center px-6 pt-12 sm:px-12 sm:pt-28 lg:px-16">
           <span
               className="sec02-enter inline-flex items-center rounded-none border border-white/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-white/80 font-barlow-thin"
             style={{ animationDelay: "80ms" }}
@@ -178,17 +216,17 @@ const Section02: React.FC = () => {
           </span>
         </div>
 
-        <div className="mx-auto flex w-full max-w-[1800px] items-center px-0 pb-10 sm:pb-12 lg:pb-14">
+        <div className="mx-auto mt-9 flex w-full max-w-[1800px] items-start px-0 pb-10 sm:mt-0 sm:items-center sm:pb-12 lg:pb-14">
           <div className="grid w-full grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,450px)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
             <div
-              className="sec02-enter relative flex max-w-[450px] flex-col justify-center self-center"
+              className="sec02-enter relative flex max-w-[450px] flex-col justify-center self-start sm:self-center"
               style={{ animationDelay: "180ms" }}
             >
-              <div className={`sec02-about-base ${activeInfoCard ? "is-out" : ""}`}>
-                <h2 className="font-secular mt-0 text-[72px] font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
+              <div className={`sec02-about-base ${activeInfoCardDesktop ? "is-out" : ""}`}>
+                <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
                   SOBRE NÓS
                 </h2>
-                <p className="font-barlow-thin mt-10 max-w-[450px] text-[18px] leading-[1.2] text-white/88 sm:text-[18px] lg:text-[18px]">
+                <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-white/88">
                   {ABOUT_TEXT}
                 </p>
               </div>
@@ -196,12 +234,12 @@ const Section02: React.FC = () => {
               {SECTION02_INFO_CARDS.map((card) => (
                 <div
                   key={`overlay-${card.key}`}
-                  className={`sec02-about-overlay ${activeInfoCard === card.key ? "is-in" : ""}`}
+                  className={`sec02-about-overlay ${activeInfoCardDesktop === card.key ? "is-in" : ""}`}
                 >
-                  <h2 className="font-secular mt-0 text-[72px] font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
+                  <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
                     {card.title}
                   </h2>
-                  <p className="font-barlow-thin mt-10 max-w-[450px] text-[18px] leading-[1.2] text-white/88 sm:text-[18px] lg:text-[18px]">
+                  <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-white/88">
                     {ABOUT_TEXT}
                   </p>
                 </div>
@@ -209,16 +247,31 @@ const Section02: React.FC = () => {
             </div>
 
             <blockquote
-              className="sec02-enter sec02-info-card relative flex h-[400px] min-h-0 min-w-0 flex-col overflow-hidden border border-white/45 p-6 lg:p-5"
+              className="sec02-enter sec02-info-card relative flex h-auto min-h-0 min-w-0 flex-col overflow-hidden border border-white/45 p-6 sm:h-[400px] sm:min-h-0 lg:p-5"
               style={{ animationDelay: "320ms" }}
-              onMouseEnter={() => setActiveInfoCard("visao")}
-              onFocus={() => setActiveInfoCard("visao")}
-              onMouseLeave={() => setActiveInfoCard(null)}
+              onMouseEnter={() => {
+                if (!isMobileViewport) setActiveInfoCard("visao")
+              }}
+              onFocus={() => {
+                if (!isMobileViewport) setActiveInfoCard("visao")
+              }}
+              onMouseLeave={() => {
+                if (!isMobileViewport) setActiveInfoCard(null)
+              }}
             >
-              <h3 className="sec02-card-copy font-secular text-[52px] font-semibold leading-[1.05] tracking-[-0.02em] text-white sm:text-[62px] lg:text-[22px]">
-                CRIATIVIDADE
-              </h3>
-              <div className="flex flex-1 items-center justify-center">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/assets/icon/bulb-2-svgrepo-com.svg"
+                  alt=""
+                  className="sec02-card-icon h-8 w-8 object-contain brightness-0 invert sm:hidden"
+                  loading="lazy"
+                  aria-hidden="true"
+                />
+                <h3 className="sec02-card-copy font-secular text-[1.9rem] font-semibold leading-[1.05] tracking-[-0.02em] text-white sm:text-[62px] lg:text-[22px]">
+                  CRIATIVIDADE
+                </h3>
+              </div>
+              <div className="hidden flex-1 items-center justify-center sm:flex">
                 <img
                   src="/assets/icon/bulb-2-svgrepo-com.svg"
                   alt=""
@@ -227,24 +280,40 @@ const Section02: React.FC = () => {
                   aria-hidden="true"
                 />
               </div>
-              <ul className="sec02-card-copy font-barlow-thin mt-0 space-y-5 text-[28px] leading-[1.4] text-white/90 sm:text-[24px] lg:text-[14px]">
+              <ul className="sec02-card-copy font-barlow-thin mt-0 space-y-3 text-[1.15rem] leading-[1.45] text-white/90 sm:text-[24px] sm:leading-[1.4] lg:text-[14px]">
                 <li>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                  Dando som a imagens. Dando voz a ideias. Criamos o que não se vê, mas se sente.
+
                 </li>
               </ul>
             </blockquote>
 
             <blockquote
-              className="sec02-enter sec02-info-card relative flex h-[400px] min-h-0 min-w-0 flex-col overflow-hidden border border-white/45 p-6 lg:p-5"
+              className="sec02-enter sec02-info-card relative flex h-auto min-h-0 min-w-0 flex-col overflow-hidden border border-white/45 p-6 sm:h-[400px] sm:min-h-0 lg:p-5"
               style={{ animationDelay: "460ms" }}
-              onMouseEnter={() => setActiveInfoCard("processo")}
-              onFocus={() => setActiveInfoCard("processo")}
-              onMouseLeave={() => setActiveInfoCard(null)}
+              onMouseEnter={() => {
+                if (!isMobileViewport) setActiveInfoCard("processo")
+              }}
+              onFocus={() => {
+                if (!isMobileViewport) setActiveInfoCard("processo")
+              }}
+              onMouseLeave={() => {
+                if (!isMobileViewport) setActiveInfoCard(null)
+              }}
             >
-              <h3 className="sec02-card-copy font-secular text-[52px] font-semibold leading-[1.05] tracking-[-0.02em] text-white sm:text-[62px] lg:text-[22px]">
-                PROCESSO
-              </h3>
-              <div className="flex flex-1 items-center justify-center">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/assets/icon/attach-svgrepo-com.svg"
+                  alt=""
+                  className="sec02-card-icon h-8 w-8 object-contain brightness-0 invert sm:hidden"
+                  loading="lazy"
+                  aria-hidden="true"
+                />
+                <h3 className="sec02-card-copy font-secular text-[1.9rem] font-semibold leading-[1.05] tracking-[-0.02em] text-white sm:text-[62px] lg:text-[22px]">
+                  PROCESSO
+                </h3>
+              </div>
+              <div className="hidden flex-1 items-center justify-center sm:flex">
                 <img
                   src="/assets/icon/attach-svgrepo-com.svg"
                   alt=""
@@ -253,24 +322,39 @@ const Section02: React.FC = () => {
                   aria-hidden="true"
                 />
               </div>
-              <ul className="sec02-card-copy font-barlow-thin mt-0 space-y-3 text-[28px] leading-[1.4] text-white/90 sm:text-[24px] lg:text-[14px]">
+              <ul className="sec02-card-copy font-barlow-thin mt-0 space-y-3 text-[1.15rem] leading-[1.45] text-white/90 sm:text-[24px] sm:leading-[1.4] lg:text-[14px]">
                 <li>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
                 </li>
               </ul>
             </blockquote>
 
             <blockquote
-              className="sec02-enter sec02-info-card relative flex h-[400px] min-h-0 min-w-0 flex-col overflow-hidden border border-white/45 p-6 lg:p-5"
+              className="sec02-enter sec02-info-card relative flex h-auto min-h-0 min-w-0 flex-col overflow-hidden border border-white/45 p-6 sm:h-[400px] sm:min-h-0 lg:p-5"
               style={{ animationDelay: "600ms" }}
-              onMouseEnter={() => setActiveInfoCard("execucao")}
-              onFocus={() => setActiveInfoCard("execucao")}
-              onMouseLeave={() => setActiveInfoCard(null)}
+              onMouseEnter={() => {
+                if (!isMobileViewport) setActiveInfoCard("execucao")
+              }}
+              onFocus={() => {
+                if (!isMobileViewport) setActiveInfoCard("execucao")
+              }}
+              onMouseLeave={() => {
+                if (!isMobileViewport) setActiveInfoCard(null)
+              }}
             >
-              <h3 className="sec02-card-copy font-secular text-[52px] font-semibold leading-[1.05] tracking-[-0.02em] text-white sm:text-[62px] lg:text-[22px]">
-                TEMPO
-              </h3>
-              <div className="flex flex-1 items-center justify-center">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/assets/icon/time-svgrepo-com.svg"
+                  alt=""
+                  className="sec02-card-icon h-8 w-8 object-contain brightness-0 invert sm:hidden"
+                  loading="lazy"
+                  aria-hidden="true"
+                />
+                <h3 className="sec02-card-copy font-secular text-[1.9rem] font-semibold leading-[1.05] tracking-[-0.02em] text-white sm:text-[62px] lg:text-[22px]">
+                  TEMPO
+                </h3>
+              </div>
+              <div className="hidden flex-1 items-center justify-center sm:flex">
                 <img
                   src="/assets/icon/time-svgrepo-com.svg"
                   alt=""
@@ -279,9 +363,9 @@ const Section02: React.FC = () => {
                   aria-hidden="true"
                 />
               </div>
-              <ul className="sec02-card-copy font-barlow-thin mt-0 space-y-3 text-[28px] leading-[1.4] text-white/90 sm:text-[24px] lg:text-[14px]">
+              <ul className="sec02-card-copy font-barlow-thin mt-0 space-y-3 text-[1.15rem] leading-[1.45] text-white/90 sm:text-[24px] sm:leading-[1.4] lg:text-[14px]">
                 <li>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
                 </li>
               </ul>
             </blockquote>

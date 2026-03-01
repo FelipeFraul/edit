@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 
 const SECTION03_CARDS = [
   {
@@ -113,12 +113,12 @@ const Section03: React.FC = () => {
       ref={sectionRef}
       id="secao-02"
       data-header-theme="light"
-      className={`relative isolate h-[100svh] snap-start snap-always overflow-hidden ${
+      className={`relative isolate h-auto sm:h-[100svh] overflow-visible sm:snap-start sm:snap-always sm:overflow-hidden ${
         isVisible ? "s03-visible" : ""
       }`}
     >
       <div
-        className="absolute inset-0"
+        className="s03-fluid-bg absolute inset-0"
         aria-hidden="true"
         style={{
           backgroundColor: "#ffffff",
@@ -137,7 +137,7 @@ const Section03: React.FC = () => {
         }}
       />
       <div
-        className="absolute inset-0"
+        className="s03-grain-bg absolute inset-0"
         aria-hidden="true"
         style={{
           backgroundImage: "radial-gradient(rgba(0,0,0,0.08) 0.7px, transparent 0.7px)",
@@ -149,25 +149,25 @@ const Section03: React.FC = () => {
         }}
       />
 
-      <div className="relative z-10 m-4 grid h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-[28px] px-6 sm:px-12 lg:px-16">
-        <div className="flex items-center justify-center px-6 pt-24 sm:px-12 sm:pt-28 lg:px-16">
+      <div className="relative z-10 m-0 grid h-auto sm:m-4 sm:h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-none sm:rounded-[28px] px-6 sm:px-12 lg:px-16">
+        <div className="flex items-center justify-center px-6 pt-12 sm:px-12 sm:pt-28 lg:px-16">
           <span
               className="s03-enter inline-flex items-center rounded-none border border-black/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-black/80 font-barlow-thin"
             style={{ animationDelay: "80ms" }}
           >
-            A PRODUCAO
+            A PRODUÇÃO
           </span>
         </div>
 
-        <div className="mx-auto flex w-full max-w-[1800px] items-center px-0 pb-10 sm:pb-12 lg:pb-14">
+        <div className="mx-auto mt-9 flex w-full max-w-[1800px] items-start px-0 pb-10 sm:mt-0 sm:items-center sm:pb-12 lg:pb-14">
           <div className="grid w-full grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,450px)_minmax(0,1fr)] xl:gap-10">
-            <div className="s03-enter flex max-w-[450px] flex-col justify-center self-center" style={{ animationDelay: "180ms" }}>
-              <h2 className="font-secular mt-0 text-[72px] font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-black">
+            <div className="s03-enter flex max-w-[450px] flex-col justify-center self-start sm:self-center" style={{ animationDelay: "180ms" }}>
+              <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-black">
                 A CRIAÇÃO
               </h2>
-              <p className="font-barlow-thin mt-10 max-w-[450px] text-[18px] leading-[1.2] text-black/85 sm:text-[18px] lg:text-[18px]">
-                A Edit Group e um hub criativo especializado em vozes nacionais e internacionais e producao de audio premium,
-                entregando interpretacao autentica, excelencia tecnica e solucoes sonoras estrategicas para publicidade, podcasts,
+              <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-black/85">
+                A Edit Group e um hub criativo especializado em vozes nacionais e internacionais e produção de áudio premium,
+                entregando interpretação autentica, excelência técnica e soluções sonoras estratéegicas para publicidade, podcasts,
                 trilhas e sound branding.
               </p>
             </div>
@@ -204,9 +204,9 @@ const Section03: React.FC = () => {
                     <h3 className="font-secular mt-1 text-[22px] leading-[0.95] text-black">{card.title}</h3>
                   </div>
 
-                  {/* ? AQUI É A CORREÇÃO: frame interno com inset fixo.
-                      Não muda a animação (classes e tempos continuam iguais),
-                      só garante que o retângulo NUNCA encoste e mantenha a mesma margem. */}
+                  {/* ? AQUI Ã‰ A CORREÃ‡ÃƒO: frame interno com inset fixo.
+                      NÃ£o muda a animaÃ§Ã£o (classes e tempos continuam iguais),
+                      sÃ³ garante que o retÃ¢ngulo NUNCA encoste e mantenha a mesma margem. */}
                   <div className="relative flex min-w-0 flex-1 items-center overflow-hidden px-4">
                     <div
                       className={`s03-media-frame relative flex w-full min-w-0 flex-1 items-center ${getDesktopImageWrapClass(
@@ -244,26 +244,26 @@ const Section03: React.FC = () => {
               ))}
             </div>
 
-            <div className="grid h-[400px] w-full grid-cols-2 gap-3 xl:hidden">
+            <div className="grid w-full grid-cols-1 gap-4 xl:hidden">
               {SECTION03_CARDS.map((card) => (
                 <article
                   key={`mobile-${card.id}`}
-                  className="s03-enter relative flex h-[400px] min-h-0 flex-col overflow-hidden border border-black/35 bg-transparent p-3"
+                  className="s03-enter relative flex h-auto min-h-0 flex-col overflow-hidden border border-black/35 bg-transparent p-6"
                   style={{ animationDelay: `${320 + (card.id - 1) * 140}ms` }}
                 >
                   <p className="font-barlow-thin text-[11px] text-black/65">{card.label}</p>
-                  <h3 className="font-secular mt-1 text-[18px] leading-[0.95] text-black">{card.title}</h3>
-                  <div className="flex flex-1 items-center justify-center">
-                    <div aria-hidden="true" className="flex h-[110px] w-[110px] items-center justify-center bg-black">
-                      <img
-                        src={card.iconSrc}
-                        alt=""
-                        className={`object-contain brightness-0 invert ${card.iconClass}`}
-                        loading="lazy"
-                      />
-                    </div>
+                  <div className="mt-1 flex items-center gap-3">
+                    <img
+                      src={card.iconSrc}
+                      alt=""
+                      className="h-8 w-8 object-contain brightness-0"
+                      loading="lazy"
+                    />
+                    <h3 className="font-secular text-[1.9rem] leading-[0.95] text-black">{card.title}</h3>
                   </div>
-                  <p className="font-barlow-thin text-[12px] text-black/75">Lorem ipsum dolor sit amet</p>
+                  <p className="font-barlow-thin mt-2 text-[1.15rem] leading-[1.45] text-black/75">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+                  </p>
                 </article>
               ))}
             </div>
@@ -272,7 +272,7 @@ const Section03: React.FC = () => {
       </div>
 
       <style>{`
-        /* ? Frame interno: cria a “margem constante” igual print 1 */
+        /* ? Frame interno: cria a â€œmargem constanteâ€ igual print 1 */
         .s03-media-frame {
           width: 100%;
           min-width: 0;
@@ -280,7 +280,7 @@ const Section03: React.FC = () => {
           padding-left: 12px;
           padding-right: 12px;
           box-sizing: border-box;
-          overflow: hidden; /* importantíssimo: o shift/translate clipa aqui, mantendo margem */
+          overflow: hidden; /* importantÃ­ssimo: o shift/translate clipa aqui, mantendo margem */
         }
 
         @keyframes sec03GrayFlow {
@@ -310,8 +310,24 @@ const Section03: React.FC = () => {
           will-change: transform, opacity, filter;
           pointer-events: auto;
         }
+        @media (max-width: 639px) {
+          .s03-enter {
+            opacity: 1;
+            transform: none;
+            filter: none;
+            pointer-events: auto;
+          }
+          .s03-visible .s03-enter {
+            animation: none;
+            will-change: auto;
+          }
+          .s03-fluid-bg,
+          .s03-grain-bg {
+            animation: none !important;
+          }
+        }
 
-        /* ? mantém sua animação intacta */
+        /* ? mantÃ©m sua animaÃ§Ã£o intacta */
         .s03-img-shift-right {
           transform: translateX(50%);
           transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -354,5 +370,6 @@ const Section03: React.FC = () => {
 }
 
 export default Section03
+
 
 

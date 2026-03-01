@@ -11,6 +11,7 @@ type StageDialProps = {
 
 const positions: Pos[] = [-3, -2, -1, 0, 1, 2, 3]
 const DEFAULT_PUSH_HALF_WIDTH_PX = 58
+const MIN_PUSH_HALF_WIDTH_PX = 20
 const PUSH_VISUAL_MARGIN_EDGE_PX = 8
 const PUSH_HALO_BLEED_PX = 16
 const PUSH_PSEUDO_INSET_PX = 14
@@ -43,7 +44,6 @@ type ArrowPillProps = {
   onDragStart?: (clientX: number) => void
   onDragMove?: (clientX: number) => void
   onDragEnd?: (clientX: number) => void
-  onHoverChange?: (hovered: boolean) => void
   keepGlow?: boolean
 }
 
@@ -55,7 +55,6 @@ function ArrowPill({
   onDragStart,
   onDragMove,
   onDragEnd,
-  onHoverChange,
   keepGlow = false,
 }: ArrowPillProps) {
   const dragThresholdPx = 6
@@ -105,43 +104,31 @@ function ArrowPill({
         pointerDownXRef.current = null
         dragStartedRef.current = false
       }}
-      onPointerEnter={() => onHoverChange?.(true)}
-      onPointerLeave={() => onHoverChange?.(false)}
-      onFocus={() => onHoverChange?.(true)}
-      onBlur={() => onHoverChange?.(false)}
       onKeyDown={(e) => {
         if (e.key !== "Enter" && e.key !== " ") return
         e.preventDefault()
         onPush?.()
       }}
       className={[
-      "group relative z-10 inline-flex h-9 w-[116px] select-none items-center justify-center rounded-none px-0",
+        "group relative z-10 inline-flex h-10 w-[4rem] select-none items-center justify-center rounded-none px-0 sm:h-9 sm:w-[116px]",
         "touch-none push-ew-cursor",
-        "border border-white/25 bg-white/5 text-white backdrop-blur-md",
-        "transition-[box-shadow,border-color,transform,background-color] duration-200 ease-out",
-        "hover:border-white/55 active:border-white/70",
-        "hover:shadow-[0_0_18px_rgba(255,255,255,0.45)]",
-        "active:shadow-[0_0_26px_rgba(255,255,255,0.65)]",
-        "before:pointer-events-none before:absolute before:inset-[-14px] before:rounded-full before:opacity-0",
-        "before:bg-[radial-gradient(closest-side,rgba(255,255,255,0.22),rgba(255,255,255,0)_70%)]",
-        "before:blur-xl before:transition-opacity before:duration-200",
-        "hover:before:opacity-100 active:before:opacity-100",
+        "border border-white/25 bg-white/5 text-white sm:backdrop-blur-md",
         keepGlow ? "!border-white/70" : "",
       ].join(" ")}
     >
-      <span className="pointer-events-none relative inline-flex items-center justify-center gap-2 text-[10px] font-semibold tracking-[0.2em] text-white/60 transition-colors group-hover:text-white/90">
+      <span className="pointer-events-none relative inline-flex items-center justify-center gap-1 sm:gap-2 text-[10px] font-semibold tracking-[0.2em] text-white/80">
         <img
           src="/assets/icon/left-2-svgrepo-com.svg"
           alt=""
           aria-hidden="true"
-          className="h-[18px] w-[18px] object-contain brightness-0 invert opacity-90 transition-opacity group-hover:opacity-100"
+          className="h-[18px] w-[18px] object-contain brightness-0 invert opacity-90"
         />
-        <span>PUSH</span>
+        <span className="hidden sm:inline">PUSH</span>
         <img
           src="/assets/icon/right-2-svgrepo-com.svg"
           alt=""
           aria-hidden="true"
-          className="h-[18px] w-[18px] object-contain brightness-0 invert opacity-90 transition-opacity group-hover:opacity-100"
+          className="h-[18px] w-[18px] object-contain brightness-0 invert opacity-90"
         />
       </span>
     </button>
@@ -155,7 +142,6 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
   const [isDragging, setIsDragging] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [isTrailOn, setIsTrailOn] = useState(false)
-  const [isPushHovered, setIsPushHovered] = useState(false)
   const [pushHalfWidthPx, setPushHalfWidthPx] = useState(DEFAULT_PUSH_HALF_WIDTH_PX)
   const [trackWidthPx, setTrackWidthPx] = useState(1)
 
@@ -171,11 +157,11 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
   const rafRef = useRef<number | null>(null)
   const ghostRafRef = useRef<number | null>(null)
 
-  const visualHalfPx =
-    pushHalfWidthPx +
-    PUSH_PSEUDO_INSET_PX +
-    PUSH_VISUAL_MARGIN_EDGE_PX +
-    PUSH_HALO_BLEED_PX
+  const visualPaddingPx =
+    pushHalfWidthPx <= 24
+      ? 10
+      : PUSH_PSEUDO_INSET_PX + PUSH_VISUAL_MARGIN_EDGE_PX + PUSH_HALO_BLEED_PX
+  const visualHalfPx = pushHalfWidthPx + visualPaddingPx
   const usablePx = Math.max(1, trackWidthPx - 2 * visualHalfPx)
 
   const pctToCenterPx = (pct: number) => (pct / 100) * usablePx + visualHalfPx
@@ -192,7 +178,7 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
 
   const idx = useMemo(() => posToIdx(value), [value])
   const snappedPct = useMemo(() => idxToPct(idx), [idx])
-  const trailVisible = isPushHovered
+  const trailVisible = false
 
   const dist = Math.abs(thumbPct - ghostPct)
   const tt = Math.min(1, Math.max(0, (dist - 1.5) / 16))
@@ -296,7 +282,8 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
     const el = pushWrapRef.current
     if (!el) return
     const syncHalfWidth = () => {
-      const next = Math.max(DEFAULT_PUSH_HALF_WIDTH_PX, el.getBoundingClientRect().width / 2)
+      const fallbackHalf = window.innerWidth < 640 ? MIN_PUSH_HALF_WIDTH_PX : DEFAULT_PUSH_HALF_WIDTH_PX
+      const next = Math.max(fallbackHalf, el.getBoundingClientRect().width / 2)
       setPushHalfWidthPx((prev) => (Math.abs(prev - next) < 0.1 ? prev : next))
     }
     syncHalfWidth()
@@ -430,15 +417,6 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
             </div>
 
             <div
-              className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/5 blur-xl transition-opacity duration-200"
-              style={{ opacity: isPushHovered ? 1 : 0 }}
-            />
-            <div
-              className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45 transition-opacity duration-200"
-              style={{ opacity: isPushHovered ? 1 : 0 }}
-            />
-
-            <div
               className="pointer-events-none absolute top-1/2"
               style={{
                 left: `${pctToCenterPx(ghostPct)}px`,
@@ -448,7 +426,7 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
               <div
                 className={[
       "h-10 w-[75px] rounded-none",
-                  "bg-white/35 blur-xl",
+                  "bg-white/35 blur-none sm:blur-xl",
                   "shadow-[0_0_42px_rgba(255,255,255,0.28)]",
                   trailVisible ? "opacity-100" : "opacity-0",
                   "transition-opacity duration-200",
@@ -463,7 +441,7 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
                 className={[
                   "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
       "h-6 w-[140px] rounded-none",
-                  "bg-white/18 blur-2xl",
+                  "bg-white/18 blur-none sm:blur-2xl",
                   "transition-opacity duration-200",
                 ].join(" ")}
                 style={{
@@ -488,7 +466,6 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
                   onDragStart={beginDrag}
                   onDragMove={continueDrag}
                   onDragEnd={endDrag}
-                  onHoverChange={setIsPushHovered}
                   keepGlow={isDragging || isAnimating}
                   onGrab={() => {
                     setIsTrailOn(true)

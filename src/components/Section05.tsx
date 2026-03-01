@@ -235,10 +235,10 @@ const Section05: React.FC = () => {
       ref={sectionRef}
       id="secao-05"
       data-header-theme="light"
-      className={`relative isolate h-[100svh] snap-start snap-always overflow-hidden ${isVisible ? "s05-visible" : ""}`}
+      className={`relative isolate h-auto sm:h-[100svh] overflow-visible sm:snap-start sm:snap-always sm:overflow-hidden ${isVisible ? "s05-visible" : ""}`}
     >
       <div
-        className="absolute inset-0"
+        className="s05-fluid-bg absolute inset-0"
         aria-hidden="true"
         style={{
           backgroundColor: "#ffffff",
@@ -258,7 +258,7 @@ const Section05: React.FC = () => {
       />
 
       <div
-        className="absolute inset-0"
+        className="s05-grain-bg absolute inset-0"
         aria-hidden="true"
         style={{
           backgroundImage: "radial-gradient(rgba(0,0,0,0.08) 0.7px, transparent 0.7px)",
@@ -270,8 +270,8 @@ const Section05: React.FC = () => {
         }}
       />
 
-      <div className="relative z-10 m-4 grid h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-[28px] px-6 sm:px-12 lg:px-16">
-        <div className="flex items-center justify-center px-6 pt-24 sm:px-12 sm:pt-28 lg:px-16">
+      <div className="relative z-10 m-0 grid h-auto sm:m-4 sm:h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-none sm:rounded-[28px] px-6 sm:px-12 lg:px-16">
+        <div className="flex items-center justify-center px-6 pt-12 sm:px-12 sm:pt-28 lg:px-16">
           <span
             className="s05-enter inline-flex items-center rounded-none border border-black/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-black/80 font-barlow-thin"
             style={{ animationDelay: "80ms" }}
@@ -280,16 +280,17 @@ const Section05: React.FC = () => {
           </span>
         </div>
 
-        <div className="mx-auto flex w-full max-w-[1800px] items-center px-0 pb-10 sm:pb-12 lg:pb-14">
+        <div className="mx-auto mt-9 flex w-full max-w-[1800px] items-start px-0 pb-10 sm:mt-0 sm:items-center sm:pb-12 lg:pb-14">
           <div className="grid w-full grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,450px)_minmax(0,1fr)] xl:gap-10">
-            <div className="s05-enter flex max-w-[450px] flex-col justify-center self-center" style={{ animationDelay: "180ms" }}>
-              <h2 className="font-secular mt-0 text-[72px] font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-black">
+            <div className="s05-enter flex max-w-[450px] flex-col justify-center self-start sm:self-center" style={{ animationDelay: "180ms" }}>
+              <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-black">
                 PARCERIAS
               </h2>
-              <p className="font-barlow-thin mt-10 max-w-[450px] text-[18px] leading-[1.2] text-black/85 sm:text-[18px] lg:text-[18px]">
-                Trabalhamos com marcas que entendem o poder da voz como estratégia. Nosso casting atende grandes players
-                nacionais e internacionais, conectando interpretação, direção criativa e excelência técnica para
-                transformar áudio em posicionamento de marca.
+              <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-black/85">
+                Trabalhamos com agências, produtoras de vídeo, videomakers e também com clientes finais que querem resolver o áudio de forma simples e bem feita.
+Sabemos nos adaptar a diferentes fluxos, equipes e prazos. Às vezes somos o braço sonoro da agência. Em outros projetos, assumimos o processo do início ao fim.
+Mais do que fornecedores, gostamos de construir parceria.
+
               </p>
             </div>
 
@@ -473,9 +474,26 @@ const Section05: React.FC = () => {
           will-change: transform, opacity, filter;
           pointer-events: auto;
         }
+        @media (max-width: 639px) {
+          .s05-enter {
+            opacity: 1;
+            transform: none;
+            filter: none;
+            pointer-events: auto;
+          }
+          .s05-visible .s05-enter {
+            animation: none;
+            will-change: auto;
+          }
+          .s05-fluid-bg,
+          .s05-grain-bg {
+            animation: none !important;
+          }
+        }
       `}</style>
     </section>
   )
 }
 
 export default Section05
+

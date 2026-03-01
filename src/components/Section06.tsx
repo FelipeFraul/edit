@@ -2,17 +2,15 @@ import React from "react"
 import { SAVED_BIG_NUMBERS_STATS } from "./Section05"
 
 const footerColumns = [
-  { title: "SUPORTE", links: ["15 9.9999-9999", "15 3272-7272", "falecom@editgroup.com.br"] },
+  { title: "SUPORTE", links: ["11 94512-8115", "falecomedit@gmail.com"] },
   { title: "EMPRESA", links: ["Sobre", "Agência de Vozes", "Clientes"] },
   { title: "LEGAL", links: ["Termos de Serviço", "Política de Privacidade", "Licença"] },
 ]
 
-// Ajuste horizontal em px (negativo = esquerda, positivo = direita)
-const footerHorizontalOffsetPx: Record<string, number> = {
-  BRAND: 0,
-  SUPORTE: 70,
-  EMPRESA: 40,
-  LEGAL: 20,
+const footerOffsetClassByTitle: Record<string, string> = {
+  SUPORTE: "lg:translate-x-[70px]",
+  EMPRESA: "lg:translate-x-[40px]",
+  LEGAL: "lg:translate-x-[20px]",
 }
 
 const Section06: React.FC = () => {
@@ -20,7 +18,7 @@ const Section06: React.FC = () => {
     <section
       id="secao-06"
       data-header-theme="dark"
-      className="relative isolate h-[100svh] snap-start snap-always overflow-hidden"
+      className="relative isolate h-auto sm:h-[100svh] overflow-visible sm:snap-start sm:snap-always sm:overflow-hidden"
     >
       <style>{`
         @keyframes sec02Fluid {
@@ -35,10 +33,16 @@ const Section06: React.FC = () => {
           75% { transform: translate3d(-0.4%, 0.9%, 0); }
           100% { transform: translate3d(0, 0, 0); }
         }
+        @media (max-width: 639px) {
+          .s06-fluid-bg,
+          .s06-grain-bg {
+            animation: none !important;
+          }
+        }
       `}</style>
 
       <div
-        className="pointer-events-none absolute inset-0"
+        className="s06-fluid-bg pointer-events-none absolute inset-0"
         aria-hidden="true"
         style={{
           backgroundColor: "#003FFF",
@@ -58,7 +62,7 @@ const Section06: React.FC = () => {
       />
 
       <div
-        className="pointer-events-none absolute inset-0"
+        className="s06-grain-bg pointer-events-none absolute inset-0"
         aria-hidden="true"
         style={{
           backgroundImage: "radial-gradient(rgba(255,255,255,0.12) 0.7px, transparent 0.7px)",
@@ -70,31 +74,31 @@ const Section06: React.FC = () => {
         }}
       />
 
-      <div className="relative z-10 m-4 grid h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-[28px] px-6 sm:px-12 lg:px-16">
-        <div className="flex items-center justify-center px-6 pt-24 sm:px-12 sm:pt-28 lg:px-16">
+      <div className="relative z-10 m-0 grid h-auto sm:m-4 sm:h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-none sm:rounded-[28px] px-6 sm:px-12 lg:px-16">
+        <div className="flex items-center justify-center px-6 pt-12 sm:px-12 sm:pt-28 lg:px-16">
             <span className="inline-flex items-center rounded-none border border-white/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-white/80 font-barlow-thin">
             OS NÚMEROS
           </span>
         </div>
 
-        <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col px-0">
-          <div className="flex w-full flex-1 items-center">
+        <div className="mx-auto mt-9 flex h-full w-full max-w-[1800px] flex-col px-0 pb-[84px] sm:mt-0 sm:pb-0">
+          <div className="flex w-full flex-1 items-start sm:items-center">
             <div className="grid w-full grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,450px)_minmax(0,1fr)] xl:gap-10">
-              <div className="flex max-w-[450px] flex-col justify-center self-center">
-                <h2 className="font-secular mt-0 text-[72px] font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
+              <div className="flex max-w-[450px] flex-col justify-center self-start sm:self-center">
+                <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
                   O RESULTADO
                 </h2>
-                <p className="font-barlow-thin mt-10 max-w-[450px] text-[18px] leading-[1.2] text-white/85">
+                <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-white/85">
                   Mais do que volume, entregamos consistência. Nossa estrutura une curadoria de talentos, direção estratégica e produção técnica para garantir qualidade, diversidade e performance em cada projeto realizado.
                 </p>
               </div>
 
               <div>
-                <ul className="flex w-full flex-nowrap items-center justify-start gap-5 overflow-x-auto pb-2 text-center">
+                <ul className="grid w-full grid-cols-2 gap-3 pb-2 text-center sm:flex sm:flex-nowrap sm:items-center sm:justify-start sm:gap-5 sm:overflow-x-auto">
                   {SAVED_BIG_NUMBERS_STATS.map((stat) => (
                     <li
                       key={stat.title}
-                      className="flex h-[190px] min-w-[190px] flex-col items-center justify-center border border-white/35 px-4"
+                      className="flex h-[190px] w-full min-w-0 flex-col items-center justify-center border border-white/35 px-4 sm:min-w-[190px]"
                     >
                       <span className="font-secular text-[54px] leading-[0.9] tracking-[-0.03em] text-white">
                         {stat.value === "+3.000" ? "+3K" : stat.value}
@@ -114,7 +118,6 @@ const Section06: React.FC = () => {
             <div className="mt-8 grid grid-cols-1 gap-y-8 sm:grid-cols-2 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)] lg:items-start lg:gap-x-10">
               <div
                 className="max-w-[220px]"
-                style={{ transform: `translateX(${footerHorizontalOffsetPx.BRAND ?? 0}px)` }}
               >
                 <img
                   src="/assets/logotipo/logo_edit_group.webp"
@@ -131,9 +134,7 @@ const Section06: React.FC = () => {
                 {footerColumns.map((column) => (
                   <div
                     key={column.title}
-                    style={{
-                      transform: `translateX(${footerHorizontalOffsetPx[column.title] ?? 0}px)`,
-                    }}
+                    className={footerOffsetClassByTitle[column.title] ?? ""}
                   >
                     <h3 className="font-secular text-[14px] uppercase tracking-[0.1em] text-white">
                       {column.title}
@@ -153,6 +154,22 @@ const Section06: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+            <div className="mt-8 border-t border-white/15 pt-5 text-center sm:text-left">
+              <p className="font-barlow-thin text-[12px] leading-[1.2] text-white/65">
+                © 2026, Edit Group. Direitos reservados. Sao Paulo, Brazil.
+              </p>
+              <p className="mt-[6px] font-barlow-thin text-[11px] leading-[1.2] text-white/65">
+                Desenvolvido por{" "}
+                <a
+                  href="https://www.linkedin.com/in/felipefraul/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex text-[11px] text-white/65 transition hover:text-white"
+                >
+                  Felipe Fraul
+                </a>
+              </p>
             </div>
           </div>
         </div>

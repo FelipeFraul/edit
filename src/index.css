@@ -65,6 +65,30 @@ svg {
   font-weight: 100;
 }
 
+.section-main-title {
+  font-size: 3rem;
+  text-align: center;
+}
+
+.section-body-copy {
+  font-size: 1.125rem;
+  line-height: 1.45;
+  letter-spacing: 0;
+  font-weight: 100;
+}
+
+@media (min-width: 640px) {
+  .section-main-title {
+    font-size: 4rem;
+    text-align: left;
+  }
+
+  .section-body-copy {
+    font-size: 1.125rem;
+    line-height: 1.2;
+  }
+}
+
 .btn-vozes {
   appearance: none;
   background-color: transparent;
@@ -75,7 +99,7 @@ svg {
   font-weight: 600;
   letter-spacing: 0.3em;
   color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(6px);
+  backdrop-filter: none;
   transition: border-color 200ms, color 200ms, box-shadow 200ms;
   outline: none;
 }
@@ -97,6 +121,12 @@ svg {
   outline: none;
   border-color: rgba(255, 255, 255, 0.4);
   box-shadow: none;
+}
+
+@media (min-width: 640px) {
+  .btn-vozes {
+    backdrop-filter: blur(6px);
+  }
 }
 
 .push-cursor,
@@ -464,12 +494,12 @@ svg {
 
 @media (max-width: 767px) {
   .hero-bg-shift {
-    object-position: calc(100% - -170px) center;
+    object-position: center;
     object-fit: cover;
   }
 
   .hero-bg-shift-bg {
-    background-position: calc(100% - 50px) center;
+    background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
   }
