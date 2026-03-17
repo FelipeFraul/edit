@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import type { AdminContent, TaxonomyNode, VoiceFilterAdmin, VoiceTalentAdmin } from "../admin/types"
+
+type Section04Props = {
+  content?: AdminContent["section04"]
+  talents?: AdminContent["section07"]["talents"]
+}
 
 type PhoneSlideSwapProps = {
   offSrc?: string
@@ -540,13 +546,16 @@ const PhoneSlideSwap: React.FC<PhoneSlideSwapProps> = ({
   )
 }
 
-const Section04: React.FC = () => {
+const Section04: React.FC<Section04Props> = ({ content, talents = [] }) => {
   const FILTER_VISIBLE_ROWS = 5
+  const sectionRef = useRef<HTMLElement | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
   const [openFilter, setOpenFilter] = useState<string | null>(null)
   const [selectedSecondItem, setSelectedSecondItem] = useState<string | null>(null)
   const [selectedThirdItem, setSelectedThirdItem] = useState<string | null>(null)
   const [selectedAccentItem, setSelectedAccentItem] = useState<string | null>(null)
   const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(null)
+  const [isVoicePlaying, setIsVoicePlaying] = useState(false)
   const [hasExplicitAccentClick, setHasExplicitAccentClick] = useState(false)
   const [middleColumnOffset, setMiddleColumnOffset] = useState(0)
   const [rightColumnOffset, setRightColumnOffset] = useState(0)
@@ -555,75 +564,165 @@ const Section04: React.FC = () => {
   const gridTrapRef = useRef<HTMLDivElement | null>(null)
   const wheelCooldownUntilRef = useRef(0)
   const rightScrollProxyRef = useRef<HTMLDivElement | null>(null)
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null)
+  const normalizeKey = (label: string) =>
+    label
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Za-z]/g, "")
+      .toUpperCase()
+
+  const normalizeLookup = (label: string) =>
+    label
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Za-z0-9]/g, "")
+      .toUpperCase()
+
+  const normalizeAudioSrc = (value?: string) => {
+    const raw = (value ?? "").trim()
+    if (!raw) return ""
+    const mapped = raw.startsWith("/uploads/audio/") ? raw.replace("/uploads/audio/", "/assets/audios/") : raw
+    return encodeURI(mapped).replace(/#/g, "%23")
+  }
+
+  useEffect(() => {
+    const target = sectionRef.current
+    if (!target) return
+
+    const rootElement = target.closest("main") as HTMLElement | null
+    const hasScrollableRoot =
+      !!rootElement && (rootElement.scrollHeight > rootElement.clientHeight || rootElement.scrollWidth > rootElement.clientWidth)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        const ratio = entry?.intersectionRatio ?? 0
+        if (!entry?.isIntersecting || ratio < 0.45) return
+        setIsVisible(true)
+        observer.unobserve(entry.target)
+      },
+      { threshold: [0.2, 0.45, 0.7], root: hasScrollableRoot ? rootElement : null }
+    )
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [])
+
+  const fallbackByKey = useMemo(
+    () =>
+      ({
+        REGIAO: {
+          iconSrc: "/assets/icon/pin-svgrepo-com.svg",
+        },
+        IDIOMA: {
+          iconSrc: "/assets/icon/search-globe-svgrepo-com.svg",
+        },
+        IDIOMAS: {
+          iconSrc: "/assets/icon/search-globe-svgrepo-com.svg",
+        },
+        TIMBRE: {
+          iconSrc: "/assets/icon/microphone-svgrepo-com.svg",
+        },
+        ESTILO: {
+          iconSrc: "/assets/icon/play-svgrepo-com.svg",
+        },
+        OBJETIVO: {
+          iconSrc: "/assets/icon/tag-2-svgrepo-com.svg",
+        },
+      }) as Record<string, { iconSrc?: string; iconGlyph?: string; subtitle?: string; hint?: string }>,
+    []
+  )
+
+  const filtersData = useMemo<VoiceFilter[]>(() => {
+    const active = (content?.filters ?? [])
+      .filter((entry: VoiceFilterAdmin) => entry.is_active && !entry.deleted_at)
+      .sort((a: VoiceFilterAdmin, b: VoiceFilterAdmin) => a.order_index - b.order_index)
+
+    if (!active.length) return []
+
+    return active.map((entry: VoiceFilterAdmin) => {
+      const key = normalizeKey(entry.name)
+      const fallbackMeta = fallbackByKey[key] ?? {}
+      return {
+        title: entry.name,
+        iconSrc: fallbackMeta.iconSrc,
+        iconGlyph: fallbackMeta.iconGlyph,
+        subtitle: entry.subtitle || fallbackMeta.subtitle || "",
+        items: (entry.items ?? []).map((node: TaxonomyNode) => node.name),
+        hint: entry.hint || fallbackMeta.hint || "",
+        nodes: entry.items ?? [],
+      }
+    })
+  }, [content?.filters, fallbackByKey])
 
  const regionCapitals: Record<string, string[]> = {
-  NORTE: ["MANAUS", "BELÉM", "PALMAS", "RIO BRANCO", "MACAPÁ", "PORTO VELHO", "BOA VISTA"],
-  NORDESTE: ["SALVADOR", "FORTALEZA", "RECIFE", "SÃO LUÍS", "JOÃO PESSOA", "TERESINA", "NATAL", "ARACAJU", "MACEIÓ"],
-  SUDESTE: ["SÃO PAULO", "RIO DE JANEIRO", "BELO HORIZONTE", "VITÓRIA"],
-  SUL: ["CURITIBA", "PORTO ALEGRE", "FLORIANÓPOLIS"],
-  "CENTRO-OESTE": ["BRASÍLIA", "GOIÂNIA", "CUIABÁ", "CAMPO GRANDE"],
+  NORTE: ["MANAUS", "BELÃ‰M", "PALMAS", "RIO BRANCO", "MACAPÃ", "PORTO VELHO", "BOA VISTA"],
+  NORDESTE: ["SALVADOR", "FORTALEZA", "RECIFE", "SÃƒO LUÃS", "JOÃƒO PESSOA", "TERESINA", "NATAL", "ARACAJU", "MACEIÃ“"],
+  SUDESTE: ["SÃƒO PAULO", "RIO DE JANEIRO", "BELO HORIZONTE", "VITÃ“RIA"],
+  SUL: ["CURITIBA", "PORTO ALEGRE", "FLORIANÃ“POLIS"],
+  "CENTRO-OESTE": ["BRASÃLIA", "GOIÃ‚NIA", "CUIABÃ", "CAMPO GRANDE"],
 }
 
 const capitalAccents: Record<string, string[]> = {
-  MANAUS: ["AMAZONENSE LEVE", "AMAZONENSE MARCANTE", "NEUTRO COM NORTISTA"],
-  BELÉM: ["PARAENSE LEVE", "PARAENSE MARCANTE", "NORTISTA COMERCIAL"],
-  PALMAS: ["TOCANTINENSE LEVE", "TRANSIÇÃO NORTE-CO"],
+  "MANAUS": ["AMAZONENSE LEVE", "AMAZONENSE MARCANTE", "NEUTRO COM NORTISTA"],
+  "BELÃ‰M": ["PARAENSE LEVE", "PARAENSE MARCANTE", "NORTISTA COMERCIAL"],
+  "PALMAS": ["TOCANTINENSE LEVE", "TRANSIÃ‡ÃƒO NORTE-CO"],
   "RIO BRANCO": ["ACREANO LEVE", "NORTE INTERIOR"],
-  MACAPÁ: ["AMAPAENSE LEVE", "AMAZÔNICO SUAVE"],
+  "MACAPÃ": ["AMAPAENSE LEVE", "AMAZÃ”NICO SUAVE"],
   "PORTO VELHO": ["RONDONIENSE LEVE", "MISTO NORTE-CO"],
   "BOA VISTA": ["RORAIMENSE LEVE", "NORTISTA SUAVE"],
 
-  SALVADOR: ["BAIANO LEVE", "BAIANO MARCANTE", "BAIANO COMERCIAL"],
-  FORTALEZA: ["CEARENSE LEVE", "CEARENSE FORTE"],
-  RECIFE: ["PERNAMBUCANO LEVE", "PERNAMBUCANO FORTE"],
-  "SÃO LUÍS": ["MARANHENSE LEVE", "MISTO NORTE-NE"],
-  "JOÃO PESSOA": ["PARAIBANO LEVE", "PARAIBANO MARCADO"],
-  TERESINA: ["PIAUIENSE LEVE", "PIAUIENSE TRADICIONAL"],
-  NATAL: ["POTIGUAR LEVE", "POTIGUAR MARCADO"],
-  ARACAJU: ["SERGIPANO LEVE", "SERGIPANO SUAVE"],
-  MACEIÓ: ["ALAGOANO LEVE", "ALAGOANO FORTE"],
+  "SALVADOR": ["BAIANO LEVE", "BAIANO MARCANTE", "BAIANO COMERCIAL"],
+  "FORTALEZA": ["CEARENSE LEVE", "CEARENSE FORTE"],
+  "RECIFE": ["PERNAMBUCANO LEVE", "PERNAMBUCANO FORTE"],
+  "SÃƒO LUÃS": ["MARANHENSE LEVE", "MISTO NORTE-NE"],
+  "JOÃƒO PESSOA": ["PARAIBANO LEVE", "PARAIBANO MARCADO"],
+  "TERESINA": ["PIAUIENSE LEVE", "PIAUIENSE TRADICIONAL"],
+  "NATAL": ["POTIGUAR LEVE", "POTIGUAR MARCADO"],
+  "ARACAJU": ["SERGIPANO LEVE", "SERGIPANO SUAVE"],
+  "MACEIÃ“": ["ALAGOANO LEVE", "ALAGOANO FORTE"],
 
-  "SÃO PAULO": ["PAULISTANO", "INTERIOR PAULISTA", "CAIPIRA LEVE", "NEUTRO NACIONAL"],
+  "SÃƒO PAULO": ["PAULISTANO", "INTERIOR PAULISTA", "CAIPIRA LEVE", "NEUTRO NACIONAL"],
   "RIO DE JANEIRO": ["CARIOCA LEVE", "CARIOCA MARCADO", "FLUMINENSE INTERIOR"],
   "BELO HORIZONTE": ["MINEIRO SUAVE", "MINEIRO RAIZ"],
-  VITÓRIA: ["CAPIXABA LEVE", "SUDESTE NEUTRO"],
+  "VITÃ“RIA": ["CAPIXABA LEVE", "SUDESTE NEUTRO"],
 
-  CURITIBA: ["PARANAENSE LEVE", "SUL COMERCIAL"],
-  "PORTO ALEGRE": ["GAÚCHO LEVE", "GAÚCHO TRADICIONAL"],
-  FLORIANÓPOLIS: ["CATARINENSE LEVE", "SUL SUAVE"],
+  "CURITIBA": ["PARANAENSE LEVE", "SUL COMERCIAL"],
+  "PORTO ALEGRE": ["GAÃšCHO LEVE", "GAÃšCHO TRADICIONAL"],
+  "FLORIANÃ“POLIS": ["CATARINENSE LEVE", "SUL SUAVE"],
 
-  BRASÍLIA: ["NEUTRO INSTITUCIONAL", "CENTRO-OESTE LEVE"],
-  GOIÂNIA: ["GOIANO LEVE", "SERTANEJO LEVE"],
-  CUIABÁ: ["CUIABANO LEVE", "CENTRO-OESTE MARCADO"],
+  "BRASÃLIA": ["NEUTRO INSTITUCIONAL", "CENTRO-OESTE LEVE"],
+  "GOIÃ‚NIA": ["GOIANO LEVE", "SERTANEJO LEVE"],
+  "CUIABÃ": ["CUIABANO LEVE", "CENTRO-OESTE MARCADO"],
   "CAMPO GRANDE": ["SUL-MATO-GROSSENSE LEVE", "CENTRO-OESTE TRADICIONAL"],
 }
 
 const idiomaFamilies: Record<string, string[]> = {
-  INGLÊS: ["AMERICANO", "BRITÂNICO", "AUSTRALIANO", "CANADENSE", "IRLANDÊS", "ESCOCÊS"],
-  ESPANHOL: ["ESPANHA", "LATINO", "RIOPLATENSE", "CARIBENHO", "MEXICANO", "ANDINO", "CHILENO", "COLOMBIANO"],
-  FRANCÊS: ["FRANÇA", "CANADÁ (QUEBEC)", "BÉLGICA", "SUÍÇA"],
-  ALEMÃO: ["ALEMANHA", "ÁUSTRIA", "SUÍÇA"],
-  ITALIANO: ["ITÁLIA (PADRÃO)", "NORTE", "SUL"],
-  ÁRABE: ["PADRÃO (MSA)", "EGÍPCIO", "LEVANTINO", "GOLFO", "MAGREBINO"],
-  MANDARIM: ["PUTONGHUA (PADRÃO)", "TAIWAN", "SINGAPURA"],
-  JAPONÊS: ["TOKYO (PADRÃO)", "KANSAI"],
+  "INGLÃŠS": ["AMERICANO", "BRITÃ‚NICO", "AUSTRALIANO", "CANADENSE", "IRLANDÃŠS", "ESCOCÃŠS"],
+  "ESPANHOL": ["ESPANHA", "LATINO", "RIOPLATENSE", "CARIBENHO", "MEXICANO", "ANDINO", "CHILENO", "COLOMBIANO"],
+  "FRANCÃŠS": ["FRANÃ‡A", "CANADÃ (QUEBEC)", "BÃ‰LGICA", "SUÃÃ‡A"],
+  "ALEMÃƒO": ["ALEMANHA", "ÃUSTRIA", "SUÃÃ‡A"],
+  "ITALIANO": ["ITÃLIA (PADRÃƒO)", "NORTE", "SUL"],
+  "ÃRABE": ["PADRÃƒO (MSA)", "EGÃPCIO", "LEVANTINO", "GOLFO", "MAGREBINO"],
+  "MANDARIM": ["PUTONGHUA (PADRÃƒO)", "TAIWAN", "SINGAPURA"],
+  "JAPONÃŠS": ["TOKYO (PADRÃƒO)", "KANSAI"],
 }
 
 const timbreAgeRanges: Record<string, string[]> = {
-  GRAVE: ["2 A 5 ANOS", "6 A 12 ANOS", "13 A 17 ANOS", "18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
-  MÉDIO: ["2 A 5 ANOS", "6 A 12 ANOS", "13 A 17 ANOS", "18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
-  AGUDO: ["2 A 5 ANOS", "6 A 12 ANOS", "13 A 17 ANOS", "18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
-  ROUCO: ["18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
-  SUAVE: ["2 A 5 ANOS", "6 A 12 ANOS", "13 A 17 ANOS", "18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
-  CORPORATIVO: ["18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
+  "GRAVE": ["2 A 5 ANOS", "6 A 12 ANOS", "13 A 17 ANOS", "18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
+  "MÃ‰DIO": ["2 A 5 ANOS", "6 A 12 ANOS", "13 A 17 ANOS", "18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
+  "AGUDO": ["2 A 5 ANOS", "6 A 12 ANOS", "13 A 17 ANOS", "18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
+  "ROUCO": ["18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
+  "SUAVE": ["2 A 5 ANOS", "6 A 12 ANOS", "13 A 17 ANOS", "18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
+  "CORPORATIVO": ["18 A 25 ANOS", "26 A 35 ANOS", "36 A 50 ANOS", "50+"],
 }
 
 const estiloIntensity: Record<string, string[]> = {
-  IMPACTANTE: ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
-  CONVERSADO: ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
-  DRAMÁTICO: ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
-  "JOVEM DINÂMICO": ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
-  INSTITUCIONAL: ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
+  "IMPACTANTE": ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
+  "CONVERSADO": ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
+  "DRAMÃTICO": ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
+  "JOVEM DINÃ‚MICO": ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
+  "INSTITUCIONAL": ["CONTIDO", "MODERADO", "ALTO", "EXPLOSIVO"],
 }
 
 type VoiceFilter = {
@@ -633,45 +732,47 @@ type VoiceFilter = {
   subtitle: string
   items: string[]
   hint: string
+  nodes?: TaxonomyNode[]
 }
 
 const voiceFilters: VoiceFilter[] = [
   {
-    title: "REGIÃO",
+    title: "REGIÃƒO",
     iconSrc: "/assets/icon/pin-svgrepo-com.svg",
     subtitle: "FILTRO ESTRUTURAL",
     items: ["NORTE", "NORDESTE", "SUDESTE", "SUL", "CENTRO-OESTE"],
-    hint: "AQUI VOCÊ ATIVA SEU DIFERENCIAL REGIONALISTA.",
+    hint: "AQUI VOCÃŠ ATIVA SEU DIFERENCIAL REGIONALISTA.",
   },
   {
     title: "IDIOMA",
     iconSrc: "/assets/icon/search-globe-svgrepo-com.svg",
     subtitle: "FILTRO ESTRUTURAL",
-    items: ["INGLÊS", "ESPANHOL", "FRANCÊS", "ALEMÃO", "ITALIANO", "ÁRABE", "MANDARIM", "JAPONÊS"],
+    items: ["INGLÃŠS", "ESPANHOL", "FRANCÃŠS", "ALEMÃƒO", "ITALIANO", "ÃRABE", "MANDARIM", "JAPONÃŠS"],
     hint: "AMPLIA O ALCANCE NACIONAL E INTERNACIONAL.",
   },
   {
     title: "TIMBRE",
     iconSrc: "/assets/icon/microphone-svgrepo-com.svg",
-    subtitle: "FILTRO TÉCNICO",
-    items: ["GRAVE", "MÉDIO", "AGUDO", "ROUCO", "CORPORATIVO", "SUAVE"],
+    subtitle: "FILTRO TÃ‰CNICO",
+    items: ["GRAVE", "MÃ‰DIO", "AGUDO", "ROUCO", "CORPORATIVO", "SUAVE"],
     hint: "ISSO MOSTRA CURADORIA PROFISSIONAL REAL.",
   },
   {
     title: "ESTILO",
     iconSrc: "/assets/icon/play-svgrepo-com.svg",
     subtitle: "FILTRO EMOCIONAL",
-    items: ["IMPACTANTE", "CONVERSADO", "DRAMÁTICO", "JOVEM DINÂMICO", "INSTITUCIONAL"],
-    hint: "DEFINE A SENSAÇÃO DA VOZ.",
+    items: ["IMPACTANTE", "CONVERSADO", "DRAMÃTICO", "JOVEM DINÃ‚MICO", "INSTITUCIONAL"],
+    hint: "DEFINE A SENSAÃ‡ÃƒO DA VOZ.",
   },
   {
     title: "OBJETIVO",
     iconSrc: "/assets/icon/tag-2-svgrepo-com.svg",
-    subtitle: "FILTRO ESTRATÉGICO",
-    items: ["VENDER / PERFORMANCE", "INSTITUCIONAL / AUTORIDADE", "BRANDING / IDENTIDADE", "CONTEÚDO DIGITAL", "EXPLICATIVO / EDUCACIONAL"],
-    hint: "VOCÊ VENDE RESULTADO, NÃO VOZ.",
+    subtitle: "FILTRO ESTRATÃ‰GICO",
+    items: ["VENDER / PERFORMANCE", "INSTITUCIONAL / AUTORIDADE", "BRANDING / IDENTIDADE", "CONTEÃšDO DIGITAL", "EXPLICATIVO / EDUCACIONAL"],
+    hint: "VOCÃŠ VENDE RESULTADO, NÃƒO VOZ.",
   },
 ]
+
 
   const normalizeFilterKey = (label: string) =>
     label
@@ -680,23 +781,60 @@ const voiceFilters: VoiceFilter[] = [
       .replace(/[^A-Za-z]/g, "")
       .toUpperCase()
 
-  const selectedFilter = voiceFilters.find((filter) => filter.title === openFilter) ?? null
+  const selectedFilter = filtersData.find((filter) => filter.title === openFilter) ?? null
   const selectedFilterKey = selectedFilter ? normalizeFilterKey(selectedFilter.title) : ""
-  const activeItems = selectedFilter ? selectedFilter.items : []
+  const staticPrimaryItemsByFilter: Record<string, string[]> = {
+    ESTILO: ["INFANTIL", "ADOLESCENTE", "MADURAS", "VOZES PRETAS"],
+  }
+  const activeItems =
+    selectedFilter && selectedFilterKey && staticPrimaryItemsByFilter[selectedFilterKey]
+      ? staticPrimaryItemsByFilter[selectedFilterKey]
+      : selectedFilter
+        ? selectedFilter.items
+        : []
+
+  const regionRows = ["NORTE", "NORDESTE", "SUDESTE", "SUL", "CENTRO-OESTE"]
+  const idiomaRows = ["INGLES", "ESPANHOL", "MANDARIM", "ITALIANO", "FRANCES", "POLONES", "ARABE"]
+  const genderRows = ["MASCULINA", "FEMININA"]
 
   const secondaryItemsByFilter: Record<string, Record<string, string[]>> = {
-    REGIAO: regionCapitals,
-    IDIOMA: idiomaFamilies,
+    REGIAO: Object.fromEntries(genderRows.map((gender) => [gender, regionRows])),
+    IDIOMA: Object.fromEntries(genderRows.map((gender) => [gender, idiomaRows])),
+    IDIOMAS: Object.fromEntries(genderRows.map((gender) => [gender, idiomaRows])),
     TIMBRE: timbreAgeRanges,
-    ESTILO: estiloIntensity,
   }
 
-  const tertiaryItemsByFilter: Record<string, Record<string, string[]>> = {
-    REGIAO: capitalAccents,
-  }
+  const tertiaryItemsByFilter: Record<string, Record<string, string[]>> = {}
+  const linearFilterKeys = new Set(["REGIAO", "IDIOMA", "IDIOMAS", "ESTILO"])
 
-  const secondaryMap = selectedFilterKey ? secondaryItemsByFilter[selectedFilterKey] : undefined
-  const tertiaryMap = selectedFilterKey ? tertiaryItemsByFilter[selectedFilterKey] : undefined
+  const nodes = selectedFilter?.nodes ?? []
+  const dynamicSecondaryMap: Record<string, string[]> = Object.fromEntries(
+    nodes.map((entry) => [entry.name, (entry.children ?? []).map((child) => child.name)])
+  )
+  const dynamicTertiaryMap: Record<string, string[]> = Object.fromEntries(
+    nodes.flatMap((entry) =>
+      (entry.children ?? []).map((child) => [child.name, (child.children ?? []).map((leaf) => leaf.name)] as const)
+    )
+  )
+
+  const secondaryMap =
+    linearFilterKeys.has(selectedFilterKey)
+      ? selectedFilterKey
+        ? secondaryItemsByFilter[selectedFilterKey]
+        : undefined
+      : Object.keys(dynamicSecondaryMap).length > 0
+        ? dynamicSecondaryMap
+        : selectedFilterKey
+          ? secondaryItemsByFilter[selectedFilterKey]
+          : undefined
+  const tertiaryMap =
+    linearFilterKeys.has(selectedFilterKey)
+      ? undefined
+      : Object.keys(dynamicTertiaryMap).length > 0
+        ? dynamicTertiaryMap
+        : selectedFilterKey
+          ? tertiaryItemsByFilter[selectedFilterKey]
+          : undefined
 
   const regionAbbrev: Record<string, string> = {
     NORTE: "N",
@@ -704,12 +842,15 @@ const voiceFilters: VoiceFilter[] = [
     "CENTRO-OESTE": "CO",
     SUDESTE: "SE",
     SUL: "S",
+    MASCULINA: "M",
+    FEMININA: "F",
   }
 
+  const middleItemsSource = secondaryMap ? Object.keys(secondaryMap) : activeItems
   const thirdColumnItems = selectedSecondItem && secondaryMap ? secondaryMap[selectedSecondItem] ?? [] : []
 
-  const maxMiddleOffset = Math.max(0, activeItems.length - FILTER_VISIBLE_ROWS)
-  const visibleMiddleItems = activeItems.slice(middleColumnOffset, middleColumnOffset + FILTER_VISIBLE_ROWS)
+  const maxMiddleOffset = Math.max(0, middleItemsSource.length - FILTER_VISIBLE_ROWS)
+  const visibleMiddleItems = middleItemsSource.slice(middleColumnOffset, middleColumnOffset + FILTER_VISIBLE_ROWS)
 
   const maxRightOffset = Math.max(0, thirdColumnItems.length - FILTER_VISIBLE_ROWS)
   const visibleThirdColumnItems = thirdColumnItems.slice(rightColumnOffset, rightColumnOffset + FILTER_VISIBLE_ROWS)
@@ -789,10 +930,178 @@ const voiceFilters: VoiceFilter[] = [
   const showDetailColumn = selectedThirdItem !== null && fourthColumnItems.length > 0
   const supportsDetailLevel = Boolean(tertiaryMap)
 
-  const selectedLeafItem = supportsDetailLevel ? selectedAccentItem : supportsSecondLevel ? selectedThirdItem : selectedSecondItem
+  const selectedLeafItem = supportsDetailLevel
+    ? selectedAccentItem
+    : supportsSecondLevel
+      ? selectedThirdItem
+      : selectedSecondItem
   const showVoiceColumn = hasExplicitAccentClick && selectedLeafItem !== null
-  const voiceNames = selectedLeafItem ? getAccentVoiceNames(selectedLeafItem) : []
+  const selectedTerms = [selectedSecondItem, selectedThirdItem, selectedAccentItem]
+    .filter((entry): entry is string => Boolean(entry))
+    .map((entry) => normalizeLookup(entry))
+
+  const activeTalentEntries = useMemo(() => {
+    const aliasesByFilter: Record<string, string[]> = {
+      REGIAO: ["REGIAO"],
+      IDIOMA: ["IDIOMA", "IDIOMAS"],
+      TIMBRE: ["TIMBRE"],
+      ESTILO: ["ESTILO"],
+      OBJETIVO: ["OBJETIVO"],
+    }
+    const aliasKeys = aliasesByFilter[selectedFilterKey] ?? [selectedFilterKey]
+
+    const matchesSelection = (path: string[]) => {
+      const normalizedPath = path.map((part) => normalizeLookup(part))
+      return selectedTerms.every((term) => normalizedPath.includes(term))
+    }
+
+    const estiloTermAliases: Record<string, string[]> = {
+      INFANTIL: ["INFANTIL", "INFANTILADOLESCENTE"],
+      ADOLESCENTE: ["ADOLESCENTE", "INFANTILADOLESCENTE"],
+      MADURAS: ["MADURA", "MADURAS"],
+      VOZESPRETAS: ["VOZESPRETAS", "PRETA", "PRETAS"],
+    }
+    const estiloAudioEntriesByTerm: Record<string, Array<{ id: string; name: string; audioFile: string }>> = {
+      INFANTIL: [
+        { id: "estilo-infantil-julia", name: "Julia", audioFile: "/assets/audios/estilo/INFANTIL- ADOLESCENTE_/Feminina - Infantil - Julia Jaime - .mp3" },
+        { id: "estilo-infantil-luiza", name: "Luiza", audioFile: "/assets/audios/estilo/INFANTIL- ADOLESCENTE_/Feminina - Infantil Luiza- Malu.mp3" },
+        { id: "estilo-infantil-manula", name: "Manula", audioFile: "/assets/audios/estilo/INFANTIL- ADOLESCENTE_/Feminina - Infantil_Adolescente - Manula Andrade - Caio.mp3" },
+        { id: "estilo-infantil-pedro", name: "Pedro", audioFile: "/assets/audios/estilo/INFANTIL- ADOLESCENTE_/Masculino - infantil criança 8 anos - Pedro Shirley rj.mp3" },
+      ],
+      ADOLESCENTE: [{ id: "estilo-adolescente-bia", name: "Bia", audioFile: "/assets/audios/estilo/INFANTIL- ADOLESCENTE_/Feminina - Infantil Bia- Malu.wav" }],
+      MADURAS: [
+        { id: "estilo-maduras-edna", name: "Edna", audioFile: "/assets/audios/estilo/MADURA/EDNA RJ BR-001.mp3" },
+        { id: "estilo-maduras-katia", name: "Katia", audioFile: "/assets/audios/estilo/MADURA/KATIA RS BR.mp3" },
+        { id: "estilo-maduras-regia", name: "Regia", audioFile: "/assets/audios/estilo/MADURA/REGIA RJ BR.mp3" },
+        { id: "estilo-maduras-telma", name: "Telma", audioFile: "/assets/audios/estilo/MADURA/TELMA RJ BR.mp3" },
+      ],
+      VOZESPRETAS: [
+        { id: "estilo-pretas-camila", name: "Camila", audioFile: "/assets/audios/estilo/VOZES PRETAS/CAMILA RJ BR.mp3" },
+        { id: "estilo-pretas-kiko", name: "Kiko", audioFile: "/assets/audios/estilo/VOZES PRETAS/KIKO BR.mp3" },
+        { id: "estilo-pretas-marco", name: "Marco", audioFile: "/assets/audios/estilo/VOZES PRETAS/MARCO GO BR.mp3" },
+        { id: "estilo-pretas-michele", name: "Michele", audioFile: "/assets/audios/estilo/VOZES PRETAS/MICHELE SP BR.mpeg" },
+        { id: "estilo-pretas-milena", name: "Milena", audioFile: "/assets/audios/estilo/VOZES PRETAS/MILENA BR CE.mp3" },
+        { id: "estilo-pretas-shirley", name: "Shirley", audioFile: "/assets/audios/estilo/VOZES PRETAS/SHIRLEY RJ BR.mp3" },
+      ],
+    }
+
+    const result = talents
+      .filter((talent: VoiceTalentAdmin) => talent.is_active && !talent.deleted_at)
+      .map((talent: VoiceTalentAdmin) => {
+        const audioFile = normalizeAudioSrc(talent.audioFile)
+        const assignments = talent.assignments ?? {}
+        const scopedPaths = aliasKeys.flatMap((key) => (assignments as Record<string, string[][]>)[key] ?? [])
+        const allPaths = Object.values(assignments).flat()
+        const targetPaths = scopedPaths.length > 0 ? scopedPaths : allPaths
+        const hasAssignmentMatch = selectedTerms.length === 0 || targetPaths.some((path) => matchesSelection(path))
+
+        const normalizedAudioContext = normalizeLookup(`${audioFile} ${talent.name ?? ""}`)
+        const hasInferredEstiloMatch =
+          selectedFilterKey === "ESTILO" &&
+          selectedTerms.length > 0 &&
+          selectedTerms.every((term) => {
+            const aliases = estiloTermAliases[term] ?? [term]
+            return aliases.some((alias) => normalizedAudioContext.includes(alias))
+          })
+
+        const hasMatch = hasAssignmentMatch || hasInferredEstiloMatch
+        const firstName = (talent.name ?? "").split(" ").filter(Boolean)[0] ?? ""
+        return hasMatch && firstName && audioFile ? { id: talent.id, name: firstName.trim(), audioFile } : null
+      })
+      .filter((entry): entry is { id: string; name: string; audioFile: string } => Boolean(entry))
+
+    const seenNames = new Set<string>()
+    const uniqueEntries = result.filter((entry) => {
+      const key = normalizeLookup(entry.name)
+      if (seenNames.has(key)) return false
+      seenNames.add(key)
+      return true
+    })
+
+    if (selectedFilterKey !== "ESTILO") return uniqueEntries
+
+    const selectedEstiloTerm = selectedSecondItem ? normalizeLookup(selectedSecondItem) : ""
+    const curated = (estiloAudioEntriesByTerm[selectedEstiloTerm] ?? []).map((entry) => ({
+      ...entry,
+      audioFile: normalizeAudioSrc(entry.audioFile),
+    }))
+
+    if (selectedEstiloTerm === "INFANTIL") {
+      const withoutBia = uniqueEntries.filter((entry) => normalizeLookup(entry.name) !== "BIA")
+      return withoutBia.length > 0 ? withoutBia : curated
+    }
+
+    if (selectedEstiloTerm === "ADOLESCENTE") {
+      const onlyBia = uniqueEntries.filter((entry) => normalizeLookup(entry.name) === "BIA")
+      return onlyBia.length > 0 ? onlyBia : curated
+    }
+
+    if (selectedEstiloTerm === "MADURAS" || selectedEstiloTerm === "VOZESPRETAS") {
+      return curated.length > 0 ? curated : uniqueEntries
+    }
+
+    return uniqueEntries
+  }, [talents, selectedFilterKey, selectedSecondItem, selectedTerms])
+
+  const voiceNames: string[] = useMemo(() => {
+    const fromTalents = activeTalentEntries.map((entry) => entry.name)
+    if (fromTalents.length > 0) return fromTalents
+    if (selectedFilterKey === "ESTILO") return []
+    return selectedLeafItem ? getAccentVoiceNames(selectedLeafItem) : []
+  }, [activeTalentEntries, selectedFilterKey, selectedLeafItem])
+
+  const voiceAudioByName = useMemo(
+    () => new Map(activeTalentEntries.map((entry) => [normalizeLookup(entry.name), entry.audioFile])),
+    [activeTalentEntries]
+  )
+
+  useEffect(() => {
+    const audio = voiceAudioRef.current ?? new Audio()
+    voiceAudioRef.current = audio
+    const onPlay = () => setIsVoicePlaying(true)
+    const onPause = () => setIsVoicePlaying(false)
+    const onEnded = () => {
+      setIsVoicePlaying(false)
+      setSelectedVoiceName(null)
+    }
+    audio.addEventListener("play", onPlay)
+    audio.addEventListener("pause", onPause)
+    audio.addEventListener("ended", onEnded)
+    return () => {
+      audio.removeEventListener("play", onPlay)
+      audio.removeEventListener("pause", onPause)
+      audio.removeEventListener("ended", onEnded)
+    }
+  }, [])
+
+  const handleVoiceToggle = (voiceName: string) => {
+    const audioFile = voiceAudioByName.get(normalizeLookup(voiceName))
+    if (!audioFile) return
+    const audio = voiceAudioRef.current ?? new Audio()
+    voiceAudioRef.current = audio
+    if (selectedVoiceName === voiceName && isVoicePlaying) {
+      audio.pause()
+      return
+    }
+    if (!audio.src || !audio.src.includes(audioFile)) {
+      audio.src = audioFile
+      audio.load()
+    } else {
+      audio.currentTime = 0
+    }
+    setSelectedVoiceName(voiceName)
+    void audio.play().catch(() => {
+      setIsVoicePlaying(false)
+    })
+  }
   const isFlatVoiceMode = showVoiceColumn && !showRightColumn && !showDetailColumn
+  const forcedColumnCountByFilter: Record<string, 3 | 4> = {
+    REGIAO: 3,
+    IDIOMA: 3,
+    IDIOMAS: 3,
+    ESTILO: 3,
+  }
+  const forcedColumnCount = selectedFilterKey ? forcedColumnCountByFilter[selectedFilterKey] : undefined
 
   const activeSelectionColumn = selectedAccentItem ? 3 : selectedThirdItem ? 2 : selectedSecondItem ? 1 : 0
 
@@ -804,19 +1113,44 @@ const voiceFilters: VoiceFilter[] = [
   const squareCol = `minmax(${compactSquarePx}px, ${compactSquarePx}px)`
   const fluidCol = "minmax(0,1fr)"
 
-  const rightGridTemplateColumns = isFlatVoiceMode
-    ? `${fluidCol} ${fluidCol}`
-    : showVoiceColumn
-      ? supportsDetailLevel
+  const hasSecondSelection = selectedSecondItem !== null
+  const hasThirdSelection = selectedThirdItem !== null
+  const showRightColumnFrame = forcedColumnCount ? forcedColumnCount >= 2 : showRightColumn || showDetailColumn || showVoiceColumn
+  const showDetailColumnFrame =
+    forcedColumnCount === 4 ? hasSecondSelection || showDetailColumn || showVoiceColumn : showDetailColumn
+  const showVoiceColumnFrame =
+    forcedColumnCount === 4
+      ? hasThirdSelection || showVoiceColumn
+      : forcedColumnCount === 3
+        ? showVoiceColumn
+        : showVoiceColumn
+
+  const rightGridTemplateColumns =
+    forcedColumnCount === 4
+      ? showVoiceColumnFrame
         ? `${compactCol1 ? squareCol : fluidCol} ${compactCol2 ? squareCol : fluidCol} ${compactCol3 ? squareCol : fluidCol} ${fluidCol}`
-        : `${compactCol1 ? squareCol : fluidCol} ${compactCol2 ? squareCol : fluidCol} ${fluidCol}`
-      : showDetailColumn
-        ? `${compactCol1 ? squareCol : fluidCol} ${compactCol2 ? squareCol : fluidCol} ${fluidCol} ${fluidCol}`
-        : showRightColumn
-          ? supportsDetailLevel
-            ? `${compactCol1 ? squareCol : fluidCol} ${fluidCol} ${fluidCol}`
-            : `${compactCol1 ? squareCol : fluidCol} ${fluidCol}`
-          : `${fluidCol} ${fluidCol}`
+        : showDetailColumnFrame
+          ? `${compactCol1 ? squareCol : fluidCol} ${compactCol2 ? squareCol : fluidCol} ${fluidCol}`
+          : `${compactCol1 ? squareCol : fluidCol} ${fluidCol}`
+      : forcedColumnCount === 3
+        ? isFlatVoiceMode
+          ? `${fluidCol} ${fluidCol}`
+          : showVoiceColumnFrame
+          ? `${compactCol1 ? squareCol : fluidCol} ${compactCol2 ? squareCol : fluidCol} ${fluidCol}`
+          : `${compactCol1 ? squareCol : fluidCol} ${fluidCol}`
+        : isFlatVoiceMode
+          ? `${fluidCol} ${fluidCol}`
+          : showVoiceColumn
+            ? showDetailColumn
+              ? `${compactCol1 ? squareCol : fluidCol} ${compactCol2 ? squareCol : fluidCol} ${compactCol3 ? squareCol : fluidCol} ${fluidCol}`
+              : showRightColumn
+                ? `${compactCol1 ? squareCol : fluidCol} ${compactCol2 ? squareCol : fluidCol} ${fluidCol}`
+                : `${compactCol1 ? squareCol : fluidCol} ${fluidCol}`
+            : showDetailColumn
+              ? `${compactCol1 ? squareCol : fluidCol} ${compactCol2 ? squareCol : fluidCol} ${fluidCol}`
+              : showRightColumn
+                ? `${compactCol1 ? squareCol : fluidCol} ${fluidCol}`
+                : `${fluidCol} ${fluidCol}`
 
   const activeScrollColumn =
     showDetailColumn && maxDetailOffset > 0 ? "detail" : showRightColumn && maxRightOffset > 0 ? "right" : maxMiddleOffset > 0 ? "middle" : null
@@ -826,7 +1160,7 @@ const voiceFilters: VoiceFilter[] = [
 
   const isLeftCollapsed = selectedSecondItem !== null
 
-  const filterBtnBase = "flex h-full min-h-0 shrink-0 items-center border px-3 py-2 text-left transition-colors duration-200"
+  const filterBtnBase = "flex h-full min-h-0 shrink-0 items-center border px-3 py-2 text-left"
   const filterBtnIdle = "border-white/35 bg-transparent hover:border-white/35 hover:bg-transparent sm:hover:border-[#6F89FF] sm:hover:bg-[#1A245C]"
   const filterBtnSelected = "border-[#A987FF] bg-[#5A0A91]"
 
@@ -979,7 +1313,14 @@ const voiceFilters: VoiceFilter[] = [
   }, [activeScrollColumn, middleColumnOffset, rightColumnOffset, detailColumnOffset, rowHeightPx])
 
   return (
-    <section id="secao-04" data-header-theme="dark" className="relative isolate h-auto sm:h-[100svh] overflow-visible sm:snap-start sm:snap-always sm:overflow-hidden">
+    <section
+      ref={sectionRef}
+      id="secao-04"
+      data-header-theme="dark"
+      className={`relative isolate h-auto sm:h-[100svh] overflow-visible sm:snap-start sm:snap-always sm:overflow-hidden ${
+        isVisible ? "s04-visible" : ""
+      }`}
+    >
       <div
         className="s04-fluid-bg absolute inset-0"
         aria-hidden="true"
@@ -1015,21 +1356,17 @@ const voiceFilters: VoiceFilter[] = [
 
       <div className="relative z-10 m-0 grid h-auto sm:m-4 sm:h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-none sm:rounded-[28px] px-6 sm:px-12 lg:px-16">
         <div className="flex items-center justify-center px-6 pt-12 sm:px-12 sm:pt-28 lg:px-16">
-          <span className='inline-flex items-center rounded-none border border-white/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-white/80 font-barlow-thin'>
+          <span className='s04-enter inline-flex items-center rounded-none border border-white/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-white/80 font-barlow-thin' style={{ animationDelay: "80ms" }}>
             AS VOZES
           </span>
         </div>
 
         <div className="mx-auto mt-9 flex w-full max-w-[1800px] items-start px-0 pb-10 sm:mt-0 sm:items-center sm:pb-12 lg:pb-14">
           <div className="grid w-full grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,450px)_minmax(0,1fr)] xl:gap-10">
-            <div className="flex max-w-[450px] flex-col justify-center self-start sm:self-center">
-              <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
-                LOCUTORES
-              </h2>
+            <div className="s04-enter flex max-w-[450px] flex-col justify-center self-start sm:self-center" style={{ animationDelay: "180ms" }}>
+              <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">{content?.title || "LOCUTORES"}</h2>
               <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-white/88">
-                Voz humana. Sotaque nativo.
-Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e estilos. Fazemos a curadoria e a intermediação completa para que você encontre a voz certa sem ruído no caminho.
-
+                {content?.text || "Voz humana. Sotaque nativo. Representamos vozes do Brasil e do exterior, com multiplos sotaques, idiomas e estilos."}
               </p>
             </div>
 
@@ -1039,7 +1376,7 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
               }`}
             >
               <div className="grid grid-cols-1 gap-3 xl:hidden">
-                {voiceFilters.map((filter) => {
+                {filtersData.map((filter) => {
                   const isOpen = openFilter === filter.title
                   return (
                     <div key={`mobile-filter-${filter.title}`} className="grid grid-cols-1 gap-0">
@@ -1060,7 +1397,7 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                           setSelectedAccentItem(null)
                           setHasExplicitAccentClick(false)
                         }}
-                        className={`flex h-auto min-h-[2.8rem] cursor-pointer items-center border px-4 py-2.5 transition-colors duration-200 ${
+                        className={`flex h-auto min-h-[2.8rem] cursor-pointer items-center border px-4 py-2.5 ${
                           isOpen ? filterBtnSelected : filterBtnIdle
                         }`}
                         aria-label={filter.title}
@@ -1085,7 +1422,7 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                       </button>
 
                       <div
-                        className={`overflow-hidden transition-[max-height,opacity,transform,margin] duration-300 ease-out ${
+                        className={`overflow-hidden ${
                           isOpen ? "mt-2 max-h-[1400px] opacity-100 translate-y-0" : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
                         }`}
                       >
@@ -1193,12 +1530,10 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                                                                   selectedVoiceName === accentVoiceName ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
                                                                 }`}
                                                                 aria-label={`Ouvir ${accentVoiceName}`}
-                                                                onClick={() =>
-                                                                  setSelectedVoiceName((prev) => (prev === accentVoiceName ? null : accentVoiceName))
-                                                                }
+                                                                onClick={() => handleVoiceToggle(accentVoiceName)}
                                                               >
                                                                 <img
-                                                                  src="/assets/icon/play-svgrepo-com.svg"
+                                                                  src={selectedVoiceName === accentVoiceName && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
                                                                   alt=""
                                                                   aria-hidden="true"
                                                                   className="h-3.5 w-3.5 brightness-0 invert"
@@ -1231,12 +1566,10 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                                                         selectedVoiceName === accentVoiceName ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
                                                       }`}
                                                       aria-label={`Ouvir ${accentVoiceName}`}
-                                                      onClick={() =>
-                                                        setSelectedVoiceName((prev) => (prev === accentVoiceName ? null : accentVoiceName))
-                                                      }
+                                                      onClick={() => handleVoiceToggle(accentVoiceName)}
                                                     >
                                                       <img
-                                                        src="/assets/icon/play-svgrepo-com.svg"
+                                                        src={selectedVoiceName === accentVoiceName && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
                                                         alt=""
                                                         aria-hidden="true"
                                                         className="h-3.5 w-3.5 brightness-0 invert"
@@ -1263,8 +1596,8 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                 })}
               </div>
 
-              <div className="hidden h-full grid-cols-1 grid-rows-5 gap-3 xl:grid">
-                {voiceFilters.map((filter) => (
+              <div className="s04-enter hidden h-full grid-cols-1 grid-rows-5 gap-3 xl:grid" style={{ animationDelay: "320ms" }}>
+                {filtersData.map((filter) => (
                   <button
                     key={filter.title}
                     type="button"
@@ -1275,7 +1608,7 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                       setSelectedAccentItem(null)
                       setHasExplicitAccentClick(false)
                     }}
-                    className={`flex h-auto min-h-[2.8rem] cursor-pointer items-center border px-4 py-2.5 transition-colors duration-200 sm:h-full sm:min-h-0 sm:py-0 ${
+                    className={`flex h-auto min-h-[2.8rem] cursor-pointer items-center border px-4 py-2.5 sm:h-full sm:min-h-0 sm:py-0 ${
                       openFilter === filter.title ? filterBtnSelected : filterBtnIdle
                     }`}
                     aria-label={filter.title}
@@ -1304,7 +1637,7 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
               </div>
 
               <div ref={gridTrapRef} className="relative hidden h-full xl:block" style={{ overscrollBehavior: "contain" }}>
-                <div className="grid h-full grid-rows-5 gap-3 pr-1" style={{ gridTemplateColumns: rightGridTemplateColumns }}>
+                <div className="s04-enter grid h-full grid-rows-5 gap-3 pr-1" style={{ gridTemplateColumns: rightGridTemplateColumns, animationDelay: "460ms" }}>
                   {Array.from({ length: FILTER_VISIBLE_ROWS }).map((_, itemIndex) => {
                     const middleItem = visibleMiddleItems[itemIndex]
                     const rightItem = visibleThirdColumnItems[itemIndex]
@@ -1331,7 +1664,6 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                           ) : (
                             <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
                               <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
                             </div>
                           )}
 
@@ -1345,12 +1677,10 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                                     selectedVoiceName === accentVoiceName ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
                                   }`}
                                   aria-label={`Ouvir ${accentVoiceName}`}
-                                  onClick={() =>
-                                    setSelectedVoiceName((prev) => (prev === accentVoiceName ? null : accentVoiceName))
-                                  }
+                                  onClick={() => handleVoiceToggle(accentVoiceName)}
                                 >
                                   <img
-                                    src="/assets/icon/play-svgrepo-com.svg"
+                                    src={selectedVoiceName === accentVoiceName && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
                                     alt=""
                                     aria-hidden="true"
                                     className="h-3.5 w-3.5 brightness-0 invert"
@@ -1362,7 +1692,6 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                           ) : (
                             <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
                               <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
                             </div>
                           )}
                         </React.Fragment>
@@ -1397,11 +1726,10 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                         ) : (
                           <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
                             <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
                           </div>
                         )}
 
-                        {showRightColumn ? (
+                        {showRightColumnFrame ? (
                           rightItem ? (
                             <button
                               type="button"
@@ -1420,17 +1748,15 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                           ) : (
                             <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
                               <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
                             </div>
                           )
                         ) : (
                           <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
                             <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
                           </div>
                         )}
 
-                        {showDetailColumn ? (
+                        {showDetailColumnFrame ? (
                           detailItem ? (
                             <button
                               type="button"
@@ -1447,17 +1773,11 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                           ) : (
                             <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
                               <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
                             </div>
                           )
-                        ) : showRightColumn && supportsDetailLevel ? (
-                          <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
-                            <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
-                          </div>
                         ) : null}
 
-                        {showVoiceColumn ? (
+                        {showVoiceColumnFrame ? (
                           accentVoiceName ? (
                             <div className={`${filterBtnBase} w-full ${selectedVoiceName === accentVoiceName ? filterBtnSelected : filterBtnIdle}`}>
                               <div className="flex w-full items-center justify-between gap-2">
@@ -1468,12 +1788,10 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                                     selectedVoiceName === accentVoiceName ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
                                   }`}
                                   aria-label={`Ouvir ${accentVoiceName}`}
-                                  onClick={() =>
-                                    setSelectedVoiceName((prev) => (prev === accentVoiceName ? null : accentVoiceName))
-                                  }
+                                  onClick={() => handleVoiceToggle(accentVoiceName)}
                                 >
                                   <img
-                                    src="/assets/icon/play-svgrepo-com.svg"
+                                    src={selectedVoiceName === accentVoiceName && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
                                     alt=""
                                     aria-hidden="true"
                                     className="h-3.5 w-3.5 brightness-0 invert"
@@ -1485,14 +1803,8 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
                           ) : (
                             <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
                               <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
                             </div>
                           )
-                        ) : showDetailColumn ? (
-                          <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
-                            <div className="h-[10px] w-[72%] rounded bg-white/20" />
-                            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[sec04-shimmer_1.2s_ease-in-out_infinite]" />
-                          </div>
                         ) : null}
                       </React.Fragment>
                     )
@@ -1530,10 +1842,32 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
       </div>
 
       <style>{`
-        @keyframes sec04-shimmer {
-          100% { transform: translateX(200%); }
+        @keyframes s04BlurIn {
+          0% { opacity: 0; transform: translateX(-26px); filter: blur(10px); }
+          100% { opacity: 1; transform: translateX(0); filter: blur(0); }
+        }
+        .s04-enter {
+          opacity: 0;
+          transform: translateX(-26px);
+          filter: blur(10px);
+          pointer-events: none;
+        }
+        .s04-visible .s04-enter {
+          animation: s04BlurIn 760ms cubic-bezier(0.22, 0.9, 0.22, 1) forwards;
+          will-change: transform, opacity, filter;
+          pointer-events: auto;
         }
         @media (max-width: 639px) {
+          .s04-enter {
+            opacity: 1;
+            transform: none;
+            filter: none;
+            pointer-events: auto;
+          }
+          .s04-visible .s04-enter {
+            animation: none;
+            will-change: auto;
+          }
           .s04-fluid-bg,
           .s04-grain-bg {
             animation: none !important;
@@ -1542,9 +1876,6 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
             background-color: transparent !important;
           }
           div[aria-hidden="true"] > div[class*="bg-white/20"],
-          div[aria-hidden="true"] > div[class*="animate-[sec04-shimmer"] {
-            display: none !important;
-          }
         }
       `}</style>
     </section>
@@ -1552,4 +1883,12 @@ Representamos vozes do Brasil e do exterior, com múltiplos sotaques, idiomas e 
 }
 
 export default Section04
+
+
+
+
+
+
+
+
 
