@@ -46,7 +46,7 @@ export default function RotatingAgencyButton() {
   return (
     <button
       type="button"
-      aria-label="Ir para secao de vozes"
+      aria-label="Ir para seção de vozes"
       onClick={goToSection04}
       className="btn-vozes font-secular relative w-full overflow-hidden !rounded-none !px-4 !text-[10px] !tracking-[0.22em] transition-colors duration-500"
       style={{
@@ -58,7 +58,7 @@ export default function RotatingAgencyButton() {
       }}
     >
       <span className="pointer-events-none relative z-10 flex h-full items-center justify-center gap-2">
-        <span>AGENCIA DE VOZES</span>
+        <span>AGÊNCIA DE VOZES</span>
         <PlusCircleIcon />
       </span>
     </button>

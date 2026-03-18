@@ -1,4 +1,5 @@
 import React from "react"
+import RotatingAgencyButton from "./RotatingAgencyButton"
 
 const BAR_BG_CLASS = "bg-black/35"
 const BAR_BORDER_CLASS = "border-white/20"
@@ -21,6 +22,7 @@ type SocialBarProps = {
   mobileRolloverProgress?: number
   mobileDocked?: boolean
   mobileReverseMotion?: boolean
+  mobileShowAgencyInBar?: boolean
 }
 
 function SocialIconButton({
@@ -71,6 +73,7 @@ export default function SocialBar({
   mobileRolloverProgress = 0,
   mobileDocked = false,
   mobileReverseMotion = false,
+  mobileShowAgencyInBar = false,
 }: SocialBarProps) {
   const [viewportWidth, setViewportWidth] = React.useState(0)
   React.useEffect(() => {
@@ -184,6 +187,21 @@ export default function SocialBar({
           />
         ))}
       </div>
+
+      {mobileShowAgencyInBar ? (
+        <div
+          className="fixed bottom-3 z-[11] w-[210px] max-w-[calc(100vw-1.5rem)] sm:hidden"
+          style={{
+            left: 0,
+            transform: `translate3d(${currentLeft + 136}px, 0, 0)`,
+            willChange: "transform",
+            opacity: mobileVisible ? Math.max(0, Math.min(1, rightProgress * 1.2)) : 0,
+            pointerEvents: mobileVisible ? "auto" : "none",
+          }}
+        >
+          <RotatingAgencyButton />
+        </div>
+      ) : null}
     </>
   )
 }

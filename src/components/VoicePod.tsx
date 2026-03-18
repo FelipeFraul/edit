@@ -140,12 +140,12 @@ export default function VoicePod({
           {isOpen ? (
             <button
               type="button"
-              aria-label="Fechar agencia de vozes"
+              aria-label="Fechar agência de vozes"
               onClick={toggleOpen}
               className="btn-vozes font-secular relative w-full overflow-hidden rounded-none !border-white/30 !bg-black/45 !px-4 !text-[10px] !tracking-[0.22em] !text-white/95 sm:backdrop-blur-md"
             >
               <span className="pointer-events-none relative z-10 flex h-full items-center justify-center gap-2">
-                <span>AGENCIA DE VOZES</span>
+                <span>AGÊNCIA DE VOZES</span>
                 <StaticHeaderIcon />
               </span>
             </button>

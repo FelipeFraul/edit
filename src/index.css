@@ -1,4 +1,4 @@
-﻿@import url("https://fonts.googleapis.com/css2?family=Secular+One&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Secular+One&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Barlow:wght@100&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300&display=swap");
 
@@ -121,6 +121,50 @@ svg {
   outline: none;
   border-color: rgba(255, 255, 255, 0.4);
   box-shadow: none;
+}
+
+/* Global: remove glow/shadow from all interactive buttons */
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+[role="button"],
+a[role="button"],
+.btn-vozes {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+button:hover,
+button:focus,
+button:focus-visible,
+button:active,
+input[type="button"]:hover,
+input[type="button"]:focus,
+input[type="button"]:focus-visible,
+input[type="button"]:active,
+input[type="submit"]:hover,
+input[type="submit"]:focus,
+input[type="submit"]:focus-visible,
+input[type="submit"]:active,
+input[type="reset"]:hover,
+input[type="reset"]:focus,
+input[type="reset"]:focus-visible,
+input[type="reset"]:active,
+[role="button"]:hover,
+[role="button"]:focus,
+[role="button"]:focus-visible,
+[role="button"]:active,
+a[role="button"]:hover,
+a[role="button"]:focus,
+a[role="button"]:focus-visible,
+a[role="button"]:active,
+.btn-vozes:hover,
+.btn-vozes:focus,
+.btn-vozes:focus-visible,
+.btn-vozes:active {
+  box-shadow: none !important;
+  text-shadow: none !important;
 }
 
 @media (min-width: 640px) {
@@ -556,4 +600,3 @@ svg {
   height: 1;
   display: none;
 }
-

@@ -16,6 +16,7 @@ const PUSH_VISUAL_MARGIN_EDGE_PX = 8
 const PUSH_HALO_BLEED_PX = 16
 const PUSH_PSEUDO_INSET_PX = 14
 const EDGE_EPSILON = 1e-4
+const IDLE_ELASTIC_DURATION_MS = 8800
 
 const clampPos = (n: number): Pos => {
   if (n <= -3) return -3
@@ -45,6 +46,7 @@ type ArrowPillProps = {
   onDragMove?: (clientX: number) => void
   onDragEnd?: (clientX: number) => void
   keepGlow?: boolean
+  isDragging?: boolean
 }
 
 function ArrowPill({
@@ -56,10 +58,39 @@ function ArrowPill({
   onDragMove,
   onDragEnd,
   keepGlow = false,
+  isDragging = false,
 }: ArrowPillProps) {
   const dragThresholdPx = 6
   const pointerDownXRef = useRef<number | null>(null)
   const dragStartedRef = useRef(false)
+  const [isHovered, setIsHovered] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
+  const [isPressed, setIsPressed] = useState(false)
+  const [idleDirection, setIdleDirection] = useState<"left" | "right" | "neutral">("neutral")
+  const idleStartRef = useRef<number>(0)
+
+  const idleAnimationEnabled = !isDragging && !isHovered && !isFocused && !isPressed
+
+  useEffect(() => {
+    if (!idleAnimationEnabled) {
+      setIdleDirection("neutral")
+      idleStartRef.current = 0
+      return
+    }
+    if (!idleStartRef.current) idleStartRef.current = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const elapsed = (now - idleStartRef.current) % IDLE_ELASTIC_DURATION_MS
+      const t = elapsed / IDLE_ELASTIC_DURATION_MS
+      // 8.8s total: 2.4s right anim, 2s neutral, 2.4s left anim, 2s neutral.
+      if (t <= 0.273) setIdleDirection("right")
+      else if (t >= 0.5 && t <= 0.773) setIdleDirection("left")
+      else setIdleDirection("neutral")
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [idleAnimationEnabled])
 
   const triggerTapAction = (event: React.PointerEvent<HTMLButtonElement>) => {
     const r = event.currentTarget.getBoundingClientRect()
@@ -72,11 +103,13 @@ function ArrowPill({
   }
 
   return (
+    <>
     <button
       type="button"
-      aria-label="PUSH"
+      aria-label="ARRASTE"
       onPointerDown={(e) => {
         e.stopPropagation()
+        setIsPressed(true)
         pointerDownXRef.current = e.clientX
         dragStartedRef.current = false
         e.currentTarget.setPointerCapture(e.pointerId)
@@ -95,15 +128,24 @@ function ArrowPill({
         e.stopPropagation()
         if (dragStartedRef.current) onDragEnd?.(e.clientX)
         else triggerTapAction(e)
+        setIsPressed(false)
         pointerDownXRef.current = null
         dragStartedRef.current = false
       }}
       onPointerCancel={(e) => {
         e.stopPropagation()
         if (dragStartedRef.current) onDragEnd?.(e.clientX)
+        setIsPressed(false)
         pointerDownXRef.current = null
         dragStartedRef.current = false
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false)
+        setIsPressed(false)
+      }}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       onKeyDown={(e) => {
         if (e.key !== "Enter" && e.key !== " ") return
         e.preventDefault()
@@ -115,23 +157,55 @@ function ArrowPill({
         "border border-white/25 bg-white/5 text-white sm:backdrop-blur-md",
         keepGlow ? "!border-white/70" : "",
       ].join(" ")}
+      style={{
+        animation: idleAnimationEnabled ? "stageDialElasticIdle 8.8s cubic-bezier(0.22, 0.86, 0.24, 1) infinite" : "none",
+      }}
     >
       <span className="pointer-events-none relative inline-flex items-center justify-center gap-1 sm:gap-2 text-[10px] font-semibold tracking-[0.2em] text-white/80">
         <img
           src="/assets/icon/left-2-svgrepo-com.svg"
           alt=""
           aria-hidden="true"
-          className="h-[18px] w-[18px] object-contain brightness-0 invert opacity-90"
+          className={`h-[18px] w-[18px] object-contain brightness-0 invert transition-opacity duration-500 ease-in-out ${
+            idleDirection === "right" ? "opacity-20" : "opacity-90"
+          }`}
         />
-        <span className="hidden sm:inline">PUSH</span>
+        <span className="hidden sm:inline">ARRASTE</span>
         <img
           src="/assets/icon/right-2-svgrepo-com.svg"
           alt=""
           aria-hidden="true"
-          className="h-[18px] w-[18px] object-contain brightness-0 invert opacity-90"
+          className={`h-[18px] w-[18px] object-contain brightness-0 invert transition-opacity duration-500 ease-in-out ${
+            idleDirection === "left" ? "opacity-20" : "opacity-90"
+          }`}
         />
       </span>
     </button>
+    <style>{`
+      @keyframes stageDialElasticIdle {
+        0% { transform: translateX(0) scaleX(1); }
+        6% { transform: translateX(0.8px) scaleX(1.002); }
+        14% { transform: translateX(3.8px) scaleX(1.014); }
+        20% { transform: translateX(9px) scaleX(1.032); }
+        23% { transform: translateX(-3.2px) scaleX(0.988); }
+        25% { transform: translateX(2.1px) scaleX(1.01); }
+        26.5% { transform: translateX(-0.9px) scaleX(0.996); }
+        27.3% { transform: translateX(0) scaleX(1); }
+
+        50% { transform: translateX(0) scaleX(1); }
+
+        56% { transform: translateX(-0.8px) scaleX(1.002); }
+        64% { transform: translateX(-3.8px) scaleX(1.014); }
+        70% { transform: translateX(-9px) scaleX(1.032); }
+        73% { transform: translateX(3.2px) scaleX(0.988); }
+        75% { transform: translateX(-2.1px) scaleX(1.01); }
+        76.5% { transform: translateX(0.9px) scaleX(0.996); }
+        77.3% { transform: translateX(0) scaleX(1); }
+
+        100% { transform: translateX(0) scaleX(1); }
+      }
+    `}</style>
+    </>
   )
 }
 
@@ -467,6 +541,7 @@ export default function StageDial({ value, onChange, onPush, ariaLabel = "Stage 
                   onDragMove={continueDrag}
                   onDragEnd={endDrag}
                   keepGlow={isDragging || isAnimating}
+                  isDragging={isDragging}
                   onGrab={() => {
                     setIsTrailOn(true)
                     startTrail()

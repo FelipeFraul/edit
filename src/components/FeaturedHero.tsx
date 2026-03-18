@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react"
 import { getVariantMedia, type HeroVariant } from "../heroVariants"
 import FullscreenMenu from "./FullscreenMenu"
 import StageDial from "./StageDial"
-import VoicePod from "./VoicePod"
 import { useTypewriterWord } from "../hooks/useTypewriterWord"
 
 type FeaturedHeroProps = {
@@ -34,12 +33,11 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
   mobileRolloverProgress = 0,
   isMobileViewport = false,
 }) => {
+  const [introVisible, setIntroVisible] = useState(false)
   const [prevVariant, setPrevVariant] = useState(variant)
   const [nextVariant, setNextVariant] = useState(variant)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionToken, setTransitionToken] = useState(0)
-  const [voicePodOpen, setVoicePodOpen] = useState(false)
-  const [isHeroInView, setIsHeroInView] = useState(true)
   const activeVariant = isTransitioning ? nextVariant : prevVariant
   const showVideo = activeVariant.pos === 0
 
@@ -50,6 +48,11 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
     holdMs: 900,
     gapMs: 220,
   })
+
+  useEffect(() => {
+    const raf = window.requestAnimationFrame(() => setIntroVisible(true))
+    return () => window.cancelAnimationFrame(raf)
+  }, [])
 
   useEffect(() => {
     if (variant.pos === nextVariant.pos) return
@@ -63,26 +66,6 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
     }, 520)
     return () => clearTimeout(timeout)
   }, [variant.pos, nextVariant.pos, variant])
-
-  useEffect(() => {
-    if (!showVideo) setVoicePodOpen(false)
-  }, [showVideo])
-
-  useEffect(() => {
-    const section = document.getElementById("split")
-    if (!section) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        setIsHeroInView(entry.isIntersecting && entry.intersectionRatio > 0.35)
-      },
-      { threshold: [0.2, 0.35, 0.5] }
-    )
-
-    observer.observe(section)
-    return () => observer.disconnect()
-  }, [])
 
   const renderLayer = (
     layerVariant: HeroVariant,
@@ -278,22 +261,7 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
                 {layerVariant.tagline}
               </p>
             )}
-            {isMediaCta && onOpenMedia ? (
-              <button
-                type="button"
-                className="btn-vozes !rounded-none hidden items-center gap-3 self-start font-secular sm:inline-flex lg:inline-flex"
-                onClick={() => onOpenMedia(layerVariant)}
-              >
-                {topLabel}
-              </button>
-            ) : layerVariant.pos === 0 ? null : (
-              <a
-                className="btn-vozes !rounded-none hidden items-center gap-3 self-start font-secular sm:inline-flex lg:inline-flex"
-                href={topHref}
-              >
-                {topLabel}
-              </a>
-            )}
+            {null}
           </div>
         </div>
       </div>
@@ -304,7 +272,13 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
     <section
       id="split"
       className="relative min-h-[100svh] w-full overflow-visible text-[#F5F5F5] sm:min-h-[100svh]"
-      style={{ textShadow: "0 2px 12px rgba(0,0,0,0.35)" }}
+      style={{
+        textShadow: "0 2px 12px rgba(0,0,0,0.35)",
+        opacity: introVisible ? 1 : 0,
+        transform: introVisible ? "translateX(0)" : "translateX(-26px)",
+        filter: introVisible ? "blur(0)" : "blur(10px)",
+        transition: "opacity 760ms cubic-bezier(0.22, 0.9, 0.22, 1), transform 760ms cubic-bezier(0.22, 0.9, 0.22, 1), filter 760ms cubic-bezier(0.22, 0.9, 0.22, 1)",
+      }}
     >
       <div
         className="absolute inset-0 z-0 bg-[#0b0b0b] transition-opacity duration-200 pointer-events-none"
@@ -320,19 +294,11 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
           </div>
         </div>
       ) : null}
-      {(!isHeroInView || showVideo || (activeVariant.pos !== 0 && mobileRolloverProgress > 0.02)) ? (
-        <VoicePod
-          open={voicePodOpen}
-          onOpenChange={setVoicePodOpen}
-          mobileDocked={mobileScrolled}
-          mobileRolloverProgress={mobileRolloverProgress}
-          mobileReverseMotion={activeVariant.pos !== 0}
-        />
-      ) : null}
     </section>
   )
 }
 
 export default FeaturedHero
+
 
 

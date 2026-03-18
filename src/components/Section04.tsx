@@ -560,6 +560,7 @@ const Section04: React.FC<Section04Props> = ({ content, talents = [] }) => {
   const [middleColumnOffset, setMiddleColumnOffset] = useState(0)
   const [rightColumnOffset, setRightColumnOffset] = useState(0)
   const [detailColumnOffset, setDetailColumnOffset] = useState(0)
+  const [voiceColumnOffset, setVoiceColumnOffset] = useState(0)
   const [rowHeightPx, setRowHeightPx] = useState(1)
   const gridTrapRef = useRef<HTMLDivElement | null>(null)
   const wheelCooldownUntilRef = useRef(0)
@@ -1049,6 +1050,8 @@ const voiceFilters: VoiceFilter[] = [
     if (selectedFilterKey === "ESTILO") return []
     return selectedLeafItem ? getAccentVoiceNames(selectedLeafItem) : []
   }, [activeTalentEntries, selectedFilterKey, selectedLeafItem])
+  const maxVoiceOffset = Math.max(0, voiceNames.length - FILTER_VISIBLE_ROWS)
+  const visibleVoiceNames = voiceNames.slice(voiceColumnOffset, voiceColumnOffset + FILTER_VISIBLE_ROWS)
 
   const voiceAudioByName = useMemo(
     () => new Map(activeTalentEntries.map((entry) => [normalizeLookup(entry.name), entry.audioFile])),
@@ -1153,10 +1156,26 @@ const voiceFilters: VoiceFilter[] = [
                 : `${fluidCol} ${fluidCol}`
 
   const activeScrollColumn =
-    showDetailColumn && maxDetailOffset > 0 ? "detail" : showRightColumn && maxRightOffset > 0 ? "right" : maxMiddleOffset > 0 ? "middle" : null
+    showVoiceColumn && maxVoiceOffset > 0
+      ? "voice"
+      : showDetailColumn && maxDetailOffset > 0
+        ? "detail"
+        : showRightColumn && maxRightOffset > 0
+          ? "right"
+          : maxMiddleOffset > 0
+            ? "middle"
+            : null
 
   const activeMaxOffset =
-    activeScrollColumn === "detail" ? maxDetailOffset : activeScrollColumn === "right" ? maxRightOffset : activeScrollColumn === "middle" ? maxMiddleOffset : 0
+    activeScrollColumn === "voice"
+      ? maxVoiceOffset
+      : activeScrollColumn === "detail"
+        ? maxDetailOffset
+        : activeScrollColumn === "right"
+          ? maxRightOffset
+          : activeScrollColumn === "middle"
+            ? maxMiddleOffset
+            : 0
 
   const isLeftCollapsed = selectedSecondItem !== null
 
@@ -1182,6 +1201,10 @@ const voiceFilters: VoiceFilter[] = [
       setRightColumnOffset(update)
       return
     }
+    if (activeScrollColumn === "voice") {
+      setVoiceColumnOffset(update)
+      return
+    }
     setDetailColumnOffset(update)
   }
 
@@ -1189,6 +1212,7 @@ const voiceFilters: VoiceFilter[] = [
     setMiddleColumnOffset(0)
     setRightColumnOffset(0)
     setDetailColumnOffset(0)
+    setVoiceColumnOffset(0)
     setSelectedThirdItem(null)
     setSelectedAccentItem(null)
     setHasExplicitAccentClick(false)
@@ -1212,6 +1236,7 @@ const voiceFilters: VoiceFilter[] = [
       setSelectedAccentItem(null)
       setHasExplicitAccentClick(!supportsSecondLevel)
       setDetailColumnOffset(0)
+      setVoiceColumnOffset(0)
       setSelectedVoiceName(null)
       return
     }
@@ -1221,6 +1246,7 @@ const voiceFilters: VoiceFilter[] = [
     setHasExplicitAccentClick(false)
     setSelectedVoiceName(null)
     setDetailColumnOffset(0)
+    setVoiceColumnOffset(0)
   }, [selectedSecondItem, selectedFilter?.title, supportsSecondLevel])
 
   useEffect(() => {
@@ -1238,6 +1264,7 @@ const voiceFilters: VoiceFilter[] = [
     }
 
     setDetailColumnOffset(0)
+    setVoiceColumnOffset(0)
     setSelectedVoiceName(null)
     const proxy = rightScrollProxyRef.current
     if (proxy) proxy.scrollTop = 0
@@ -1309,8 +1336,12 @@ const voiceFilters: VoiceFilter[] = [
       proxy.scrollTop = detailColumnOffset * rowHeightPx
       return
     }
+    if (activeScrollColumn === "voice") {
+      proxy.scrollTop = voiceColumnOffset * rowHeightPx
+      return
+    }
     proxy.scrollTop = 0
-  }, [activeScrollColumn, middleColumnOffset, rightColumnOffset, detailColumnOffset, rowHeightPx])
+  }, [activeScrollColumn, middleColumnOffset, rightColumnOffset, detailColumnOffset, voiceColumnOffset, rowHeightPx])
 
   return (
     <section
@@ -1642,7 +1673,7 @@ const voiceFilters: VoiceFilter[] = [
                     const middleItem = visibleMiddleItems[itemIndex]
                     const rightItem = visibleThirdColumnItems[itemIndex]
                     const detailItem = visibleFourthColumnItems[itemIndex]
-                    const accentVoiceName = voiceNames[itemIndex]
+                    const accentVoiceName = visibleVoiceNames[itemIndex]
 
                     if (isFlatVoiceMode) {
                       return (
@@ -1829,6 +1860,10 @@ const voiceFilters: VoiceFilter[] = [
                     }
                     if (activeScrollColumn === "detail") {
                       setDetailColumnOffset(nextOffset)
+                      return
+                    }
+                    if (activeScrollColumn === "voice") {
+                      setVoiceColumnOffset(nextOffset)
                     }
                   }}
                   aria-hidden="true"

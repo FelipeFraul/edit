@@ -1,4 +1,4 @@
-﻿export type MediaItem = {
+export type MediaItem = {
   videoSrc?: string
   poster?: string
   who: string
@@ -74,7 +74,7 @@ export const heroVariants: HeroVariant[] = [
       who: "BUZZMONITOR",
       when: "2024",
       category: "Publicidade",
-      title: "COISA COMPLETA E FLEXÍVEL PRA CAR!@#$%^&*.",
+      title: "COISA COMPLETA E FLEXÍVEL PRA CAR!@#$%^&*",
       subtitle: "Reposicionamento com foco em impacto e clareza.",
     },
     mobileMedia: {
@@ -83,7 +83,7 @@ export const heroVariants: HeroVariant[] = [
       who: "BUZZMONITOR",
       when: "2024",
       category: "Publicidade",
-      title: "COISA COMPLETA E FLEXÍVEL PRA CAR!@#$%^&*.",
+      title: "COISA COMPLETA E FLEXÍVEL PRA CAR!@#$%^&*",
       subtitle: "Reposicionamento com foco em impacto e clareza.",
     },
     bgImage: "/assets/hero_buzz_desk.webp",
@@ -104,7 +104,7 @@ export const heroVariants: HeroVariant[] = [
       who: "COCA-COLA",
       when: "2024",
       category: "Publicidade",
-      title: "UMA EXPERIÊNCIA TODA SENSORIAL E IMERSIVA DE NATAL.",
+      title: "UMA EXPERIÊNCIA TODA SENSORIAL E IMERSIVA DE NATAL",
       subtitle: "",
     },
     mobileMedia: {
@@ -113,7 +113,7 @@ export const heroVariants: HeroVariant[] = [
       who: "COCA-COLA",
       when: "2024",
       category: "Publicidade",
-      title: "UMA EXPERIÊNCIA TODA SENSORIAL E IMERSIVA DE NATAL.",
+      title: "UMA EXPERIÊNCIA TODA SENSORIAL E IMERSIVA DE NATAL",
       subtitle: "",
     },
     bgImage: "/assets/hero_coca_cola_desk.webp",
@@ -203,7 +203,7 @@ export const heroVariants: HeroVariant[] = [
       who: "DETRAN PR",
       when: "2025",
       category: "PUBLICIDADE",
-      title: "TODO MUNDO PODE MUDAR DE DIREÇÃO NA VIDA.",
+      title: "TODO MUNDO PODE MUDAR DE DIREÇÃO NA VIDA",
       subtitle: "Nova identidade para streaming de autor.",
     },
     mobileMedia: {
@@ -212,7 +212,7 @@ export const heroVariants: HeroVariant[] = [
       who: "DETRAN PR",
       when: "2025",
       category: "PUBLICIDADE",
-      title: "TODO MUNDO PODE MUDAR DE DIREÇÃO NA VIDA.",
+      title: "TODO MUNDO PODE MUDAR DE DIREÇÃO NA VIDA",
       subtitle: "Nova identidade para streaming de autor.",
     },
     bgImage: "/assets/bg_hero_publicidade_ambev.webp",

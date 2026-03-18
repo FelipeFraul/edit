@@ -1,7 +1,8 @@
-import React from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { SAVED_BIG_NUMBERS_STATS } from "./Section05"
+import type { AdminContent, FooterColumnAdmin, FooterLinkAdmin, StatAdmin } from "../admin/types"
 
-const footerColumns = [
+const fallbackFooterColumns = [
   { title: "SUPORTE", links: ["11 94512-8115", "falecomedit@gmail.com"] },
   { title: "EMPRESA", links: ["Sobre", "Agência de Vozes", "Clientes"] },
   { title: "LEGAL", links: ["Termos de Serviço", "Política de Privacidade", "Licença"] },
@@ -13,12 +14,72 @@ const footerOffsetClassByTitle: Record<string, string> = {
   LEGAL: "lg:translate-x-[20px]",
 }
 
-const Section06: React.FC = () => {
+type Section06Props = {
+  content?: AdminContent["section06"]
+  footer?: AdminContent["footer"]
+}
+
+const byOrder = <T extends { order_index: number }>(a: T, b: T) => a.order_index - b.order_index
+
+const Section06: React.FC<Section06Props> = ({ content, footer }) => {
+  const sectionRef = useRef<HTMLElement | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
+  const stats = useMemo(() => {
+    const active = (content?.stats ?? [])
+      .filter((entry: StatAdmin) => entry.is_active && !entry.deleted_at)
+      .sort(byOrder)
+    if (!active.length) return SAVED_BIG_NUMBERS_STATS
+    return active.map((entry) => ({
+      value: entry.value,
+      title: entry.title,
+      description: entry.description,
+    }))
+  }, [content?.stats])
+
+  const footerColumns = useMemo(() => {
+    const active = (footer?.columns ?? [])
+      .filter((entry: FooterColumnAdmin) => entry.is_active && !entry.deleted_at)
+      .sort(byOrder)
+    if (!active.length) return fallbackFooterColumns
+
+    return active.map((column) => ({
+      title: column.title,
+      links: (column.links ?? [])
+        .filter((entry: FooterLinkAdmin) => entry.is_active && !entry.deleted_at)
+        .sort(byOrder)
+        .map((entry) => entry.label || entry.url)
+        .filter(Boolean),
+    }))
+  }, [footer?.columns])
+
+  useEffect(() => {
+    const target = sectionRef.current
+    if (!target) return
+
+    const rootElement = target.closest("main") as HTMLElement | null
+    const hasScrollableRoot =
+      !!rootElement && (rootElement.scrollHeight > rootElement.clientHeight || rootElement.scrollWidth > rootElement.clientWidth)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        const ratio = entry?.intersectionRatio ?? 0
+        setIsVisible(Boolean(entry?.isIntersecting && ratio >= 0.45))
+      },
+      { threshold: [0.2, 0.45, 0.7], root: hasScrollableRoot ? rootElement : null }
+    )
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <section
+      ref={sectionRef}
       id="secao-06"
       data-header-theme="dark"
-      className="relative isolate h-auto sm:h-[100svh] overflow-visible sm:snap-start sm:snap-always sm:overflow-hidden"
+      className={`relative isolate h-auto sm:h-[100svh] overflow-visible sm:snap-start sm:snap-always sm:overflow-hidden ${
+        isVisible ? "s06-visible" : ""
+      }`}
     >
       <style>{`
         @keyframes sec02Fluid {
@@ -33,10 +94,35 @@ const Section06: React.FC = () => {
           75% { transform: translate3d(-0.4%, 0.9%, 0); }
           100% { transform: translate3d(0, 0, 0); }
         }
+        @keyframes s06BlurIn {
+          0% { opacity: 0; transform: translateX(-26px); filter: blur(10px); }
+          100% { opacity: 1; transform: translateX(0); filter: blur(0); }
+        }
+        .s06-enter {
+          opacity: 0;
+          transform: translateX(-26px);
+          filter: blur(10px);
+          pointer-events: none;
+        }
+        .s06-visible .s06-enter {
+          animation: s06BlurIn 760ms cubic-bezier(0.22, 0.9, 0.22, 1) forwards;
+          will-change: transform, opacity, filter;
+          pointer-events: auto;
+        }
         @media (max-width: 639px) {
           .s06-fluid-bg,
           .s06-grain-bg {
             animation: none !important;
+          }
+          .s06-enter {
+            opacity: 1;
+            transform: none;
+            filter: none;
+            pointer-events: auto;
+          }
+          .s06-visible .s06-enter {
+            animation: none;
+            will-change: auto;
           }
         }
       `}</style>
@@ -76,7 +162,7 @@ const Section06: React.FC = () => {
 
       <div className="relative z-10 m-0 grid h-auto sm:m-4 sm:h-[calc(100svh-2rem)] grid-rows-[auto_1fr] rounded-none sm:rounded-[28px] px-6 sm:px-12 lg:px-16">
         <div className="flex items-center justify-center px-6 pt-12 sm:px-12 sm:pt-28 lg:px-16">
-            <span className="inline-flex items-center rounded-none border border-white/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-white/80 font-barlow-thin">
+            <span className="s06-enter inline-flex items-center rounded-none border border-white/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-white/80 font-barlow-thin" style={{ animationDelay: "80ms" }}>
             OS NÚMEROS
           </span>
         </div>
@@ -84,21 +170,22 @@ const Section06: React.FC = () => {
         <div className="mx-auto mt-9 flex h-full w-full max-w-[1800px] flex-col px-0 pb-[84px] sm:mt-0 sm:pb-0">
           <div className="flex w-full flex-1 items-start sm:items-center">
             <div className="grid w-full grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,450px)_minmax(0,1fr)] xl:gap-10">
-              <div className="flex max-w-[450px] flex-col justify-center self-start sm:self-center">
+              <div className="s06-enter flex max-w-[450px] flex-col justify-center self-start sm:self-center" style={{ animationDelay: "180ms" }}>
                 <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
-                  O RESULTADO
+                  {content?.title || "O RESULTADO"}
                 </h2>
                 <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-white/85">
-                  Mais do que volume, entregamos consistência. Nossa estrutura une curadoria de talentos, direção estratégica e produção técnica para garantir qualidade, diversidade e performance em cada projeto realizado.
+                  {content?.text || "Mais do que volume, entregamos consistencia. Nossa estrutura une curadoria de talentos, direcao estrategica e producao tecnica para garantir qualidade, diversidade e performance em cada projeto realizado."}
                 </p>
               </div>
 
-              <div>
+              <div className="s06-enter" style={{ animationDelay: "280ms" }}>
                 <ul className="grid w-full grid-cols-2 gap-3 pb-2 text-center sm:flex sm:flex-nowrap sm:items-center sm:justify-start sm:gap-5 sm:overflow-x-auto">
-                  {SAVED_BIG_NUMBERS_STATS.map((stat) => (
+                  {stats.map((stat, index) => (
                     <li
                       key={stat.title}
-                      className="flex h-[190px] w-full min-w-0 flex-col items-center justify-center border border-white/35 px-4 sm:min-w-[190px]"
+                      className="s06-enter flex h-[190px] w-full min-w-0 flex-col items-center justify-center border border-white/35 px-4 sm:min-w-[190px]"
+                      style={{ animationDelay: `${340 + index * 80}ms` }}
                     >
                       <span className="font-secular text-[54px] leading-[0.9] tracking-[-0.03em] text-white">
                         {stat.value === "+3.000" ? "+3K" : stat.value}
@@ -116,9 +203,7 @@ const Section06: React.FC = () => {
           <div className="mt-auto">
             <div className="h-px w-full bg-white/15" />
             <div className="mt-8 grid grid-cols-1 gap-y-8 sm:grid-cols-2 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)] lg:items-start lg:gap-x-10">
-              <div
-                className="max-w-[220px]"
-              >
+              <div className="s06-enter max-w-[220px]" style={{ animationDelay: "520ms" }}>
                 <img
                   src="/assets/logotipo/logo_edit_group.webp"
                   alt="Edit Group"
@@ -131,10 +216,11 @@ const Section06: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-2 lg:max-w-[760px] lg:grid-cols-3 lg:gap-x-10">
-                {footerColumns.map((column) => (
+                {footerColumns.map((column, index) => (
                   <div
                     key={column.title}
-                    className={footerOffsetClassByTitle[column.title] ?? ""}
+                    className={`s06-enter ${footerOffsetClassByTitle[column.title] ?? ""}`}
+                    style={{ animationDelay: `${620 + index * 100}ms` }}
                   >
                     <h3 className="font-secular text-[14px] uppercase tracking-[0.1em] text-white">
                       {column.title}
@@ -155,19 +241,19 @@ const Section06: React.FC = () => {
                 ))}
               </div>
             </div>
-            <div className="mt-8 border-t border-white/15 pt-5 text-center sm:text-left">
+            <div className="s06-enter mt-8 border-t border-white/15 pt-5 text-center sm:text-left" style={{ animationDelay: "920ms" }}>
               <p className="font-barlow-thin text-[12px] leading-[1.2] text-white/65">
-                © 2026, Edit Group. Direitos reservados. Sao Paulo, Brazil.
+                {footer?.copyrightText || "© 2026, Edit Group. Direitos reservados."} {footer?.city || "Sao Paulo, Brazil."}
               </p>
               <p className="mt-[6px] font-barlow-thin text-[11px] leading-[1.2] text-white/65">
                 Desenvolvido por{" "}
                 <a
-                  href="https://www.linkedin.com/in/felipefraul/"
+                  href="https://www.linkedin.com/in/felipeproenca/"
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex text-[11px] text-white/65 transition hover:text-white"
                 >
-                  Felipe Fraul
+                  Felipe Proença
                 </a>
               </p>
             </div>
@@ -179,3 +265,6 @@ const Section06: React.FC = () => {
 }
 
 export default Section06
+
+
+

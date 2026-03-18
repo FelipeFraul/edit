@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react"
+import React, { useMemo, useEffect, useRef, useState } from "react"
+import type { AdminContent, SectionStep } from "../admin/types"
 
 const SECTION03_CARDS = [
   {
@@ -7,6 +8,7 @@ const SECTION03_CARDS = [
     title: "EDIÇÃO",
     iconSrc: "/assets/icon/settings-2-svgrepo-com.svg",
     iconClass: "h-[58%]",
+    text: "",
   },
   {
     id: 2,
@@ -14,6 +16,7 @@ const SECTION03_CARDS = [
     title: "MIXAGEM",
     iconSrc: "/assets/icon/settings-svgrepo-com.svg",
     iconClass: "h-[66%]",
+    text: "",
   },
   {
     id: 3,
@@ -21,10 +24,17 @@ const SECTION03_CARDS = [
     title: "FINALIZAÇÃO",
     iconSrc: "/assets/icon/send-1-svgrepo-com.svg",
     iconClass: "h-[58%] w-[58%]",
+    text: "",
   },
 ]
 
-const Section03: React.FC = () => {
+type Section03Props = {
+  content?: AdminContent["section03"]
+}
+
+const byOrder = (a: SectionStep, b: SectionStep) => a.order_index - b.order_index
+
+const Section03: React.FC<Section03Props> = ({ content }) => {
   const sectionRef = useRef<HTMLElement | null>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [activeCard, setActiveCard] = useState<number | null>(null)
@@ -61,14 +71,16 @@ const Section03: React.FC = () => {
     if (!target) return
 
     const rootElement = target.closest("main") as HTMLElement | null
+    const hasScrollableRoot =
+      !!rootElement && (rootElement.scrollHeight > rootElement.clientHeight || rootElement.scrollWidth > rootElement.clientWidth)
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]
-        if (!entry?.isIntersecting) return
+        if (!entry?.isIntersecting && (entry?.intersectionRatio ?? 0) < 0.08) return
         setIsVisible(true)
         observer.unobserve(entry.target)
       },
-      { threshold: 0.25, root: rootElement }
+      { threshold: [0.08, 0.2], root: hasScrollableRoot ? rootElement : null }
     )
 
     observer.observe(target)
@@ -107,6 +119,27 @@ const Section03: React.FC = () => {
     if (index === activeCard) return 1.8
     return 0.8
   }
+
+  const cards = useMemo(() => {
+    const steps = (content?.steps ?? [])
+      .filter((entry) => entry.is_active && !entry.deleted_at)
+      .sort(byOrder)
+      .slice(0, 3)
+    if (!steps.length) return SECTION03_CARDS
+    return steps.map((step, index) => ({
+      id: index + 1,
+      label: "",
+      title: step.name || SECTION03_CARDS[index % SECTION03_CARDS.length].title,
+      iconSrc: step.media || SECTION03_CARDS[index % SECTION03_CARDS.length].iconSrc,
+      iconClass: SECTION03_CARDS[index % SECTION03_CARDS.length].iconClass,
+      text: step.text || "",
+    }))
+  }, [content?.steps])
+
+  const sectionTitle = content?.title || "A CRIAÇÃO"
+  const sectionText =
+    content?.text ||
+    "A Edit Group é um hub criativo especializado em vozes nacionais e internacionais e produção de áudio premium."
 
   return (
     <section
@@ -163,12 +196,10 @@ const Section03: React.FC = () => {
           <div className="grid w-full grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,450px)_minmax(0,1fr)] xl:gap-10">
             <div className="s03-enter flex max-w-[450px] flex-col justify-center self-start sm:self-center" style={{ animationDelay: "180ms" }}>
               <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-black">
-                A CRIAÇÃO
+                {sectionTitle}
               </h2>
               <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-black/85">
-                A Edit Group e um hub criativo especializado em vozes nacionais e internacionais e produção de áudio premium,
-                entregando interpretação autentica, excelência técnica e soluções sonoras estratéegicas para publicidade, podcasts,
-                trilhas e sound branding.
+                {sectionText}
               </p>
             </div>
 
@@ -184,7 +215,7 @@ const Section03: React.FC = () => {
                 }, 500)
               }}
             >
-              {SECTION03_CARDS.map((card) => (
+              {cards.map((card) => (
                 <article
                   key={card.id}
                   onMouseEnter={() => setActiveCard(card.id - 1)}
@@ -204,9 +235,9 @@ const Section03: React.FC = () => {
                     <h3 className="font-secular mt-1 text-[22px] leading-[0.95] text-black">{card.title}</h3>
                   </div>
 
-                  {/* ? AQUI Ã‰ A CORREÃ‡ÃƒO: frame interno com inset fixo.
-                      NÃ£o muda a animaÃ§Ã£o (classes e tempos continuam iguais),
-                      sÃ³ garante que o retÃ¢ngulo NUNCA encoste e mantenha a mesma margem. */}
+                  {/* ? AQUI Ãƒâ€° A CORREÃƒâ€¡ÃƒÆ’O: frame interno com inset fixo.
+                      NÃƒÂ£o muda a animaÃƒÂ§ÃƒÂ£o (classes e tempos continuam iguais),
+                      sÃƒÂ³ garante que o retÃƒÂ¢ngulo NUNCA encoste e mantenha a mesma margem. */}
                   <div className="relative flex min-w-0 flex-1 items-center overflow-hidden px-4">
                     <div
                       className={`s03-media-frame relative flex w-full min-w-0 flex-1 items-center ${getDesktopImageWrapClass(
@@ -229,23 +260,23 @@ const Section03: React.FC = () => {
 
                       <div className={getDesktopFillTextClass(card.id - 1)}>
                         <div className="space-y-2">
-                          <p className="px-4 font-barlow-thin text-[14px] leading-[1.35] text-black/75">
-                            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Tempor incididunt ut labore et dolore magna aliqua.
+                          <p className="px-4 font-barlow-thin text-[18px] leading-[1.35] text-black/75">
+                            {card.text || "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Tempor incididunt ut labore et dolore magna aliqua."}
                           </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="font-barlow-thin space-y-1 px-4 text-[12px] leading-[1.3] text-black/75">
-                    <p>Lorem ipsum dolor sit amet</p>
+                  <div className="font-barlow-thin min-h-[72px] space-y-1 px-4 text-[18px] leading-[1.3] text-black/75">
+                    <p className="line-clamp-2">{card.text || "Lorem ipsum dolor sit amet"}</p>
                   </div>
                 </article>
               ))}
             </div>
 
             <div className="grid w-full grid-cols-1 gap-4 xl:hidden">
-              {SECTION03_CARDS.map((card) => (
+              {cards.map((card) => (
                 <article
                   key={`mobile-${card.id}`}
                   className="s03-enter relative flex h-auto min-h-0 flex-col overflow-hidden border border-black/35 bg-transparent p-6"
@@ -261,8 +292,8 @@ const Section03: React.FC = () => {
                     />
                     <h3 className="font-secular text-[1.9rem] leading-[0.95] text-black">{card.title}</h3>
                   </div>
-                  <p className="font-barlow-thin mt-2 text-[1.15rem] leading-[1.45] text-black/75">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+                  <p className="font-barlow-thin mt-2 text-[18px] leading-[1.45] text-black/75">
+                    {card.text || "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor."}
                   </p>
                 </article>
               ))}
@@ -272,7 +303,7 @@ const Section03: React.FC = () => {
       </div>
 
       <style>{`
-        /* ? Frame interno: cria a â€œmargem constanteâ€ igual print 1 */
+        /* ? Frame interno: cria a Ã¢â‚¬Å“margem constanteÃ¢â‚¬Â igual print 1 */
         .s03-media-frame {
           width: 100%;
           min-width: 0;
@@ -280,7 +311,7 @@ const Section03: React.FC = () => {
           padding-left: 12px;
           padding-right: 12px;
           box-sizing: border-box;
-          overflow: hidden; /* importantÃ­ssimo: o shift/translate clipa aqui, mantendo margem */
+          overflow: hidden; /* importantÃƒÂ­ssimo: o shift/translate clipa aqui, mantendo margem */
         }
 
         @keyframes sec03GrayFlow {
@@ -327,7 +358,7 @@ const Section03: React.FC = () => {
           }
         }
 
-        /* ? mantÃ©m sua animaÃ§Ã£o intacta */
+        /* ? mantÃƒÂ©m sua animaÃƒÂ§ÃƒÂ£o intacta */
         .s03-img-shift-right {
           transform: translateX(50%);
           transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -370,6 +401,10 @@ const Section03: React.FC = () => {
 }
 
 export default Section03
+
+
+
+
 
 
 

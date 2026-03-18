@@ -8,23 +8,32 @@ import Section04 from "./components/Section04"
 import Section05 from "./components/Section05"
 import Section06 from "./components/Section06"
 import SocialBar from "./components/SocialBar"
+import RotatingAgencyButton from "./components/RotatingAgencyButton"
 import {
-  getHeroVariant,
   getVariantMedia,
   heroVariants,
   type HeroVariant,
   type MediaItem,
 } from "./heroVariants"
+import { getLatestPublished, loadDraftContent, loadDraftContentRemote, loadVersions, loadVersionsRemote } from "./admin/storage"
+import type { AdminContent } from "./admin/types"
 
 const SHARED_BG_VIDEO = "https://www.youtube.com/embed/ehEqJZ_7fpc?autoplay=1&mute=1&controls=0&loop=1&playlist=ehEqJZ_7fpc&start=80&playsinline=1&rel=0&modestbranding=1"
 
 const clampPos = (value: number) =>
   Math.min(3, Math.max(-3, Math.round(value))) as -3 | -2 | -1 | 0 | 1 | 2 | 3
 
+const HERO_POSITIONS: Array<-3 | -2 | -1 | 0 | 1 | 2 | 3> = [-3, -2, -1, 0, 1, 2, 3]
+
 const MOBILE_HEADER_SHOW_SCROLL_PX = 12
 const MOBILE_HEADER_HIDE_SCROLL_PX = 4
 
+const resolveInitialContent = (): AdminContent => {
+  return loadDraftContent()
+}
+
 const Home: React.FC = () => {
+  const [cmsContent, setCmsContent] = useState<AdminContent>(() => resolveInitialContent())
   const [pos, setPos] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0)
   const [mediaOpen, setMediaOpen] = useState(false)
   const [mediaItem, setMediaItem] = useState<MediaItem | null>(null)
@@ -35,14 +44,101 @@ const Home: React.FC = () => {
   const [mobileHeaderBgVisible, setMobileHeaderBgVisible] = useState(false)
   const [mobileRolloverProgress, setMobileRolloverProgress] = useState(0)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [mobileViewportWidth, setMobileViewportWidth] = useState(0)
   const mainRef = useRef<HTMLDivElement | null>(null)
   const logoRef = useRef<HTMLDivElement | null>(null)
 
-  const variant = useMemo(() => getHeroVariant(pos), [pos])
+  const heroCarouselVariants = useMemo<HeroVariant[]>(() => {
+    const active = (cmsContent.hero?.variants ?? [])
+      .filter((entry) => entry.is_active && !entry.deleted_at)
+      .sort((a, b) => {
+        if (a.pos !== b.pos) return a.pos - b.pos
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      })
+
+    const byPos = new Map(active.map((entry) => [entry.pos, entry]))
+    const fromCms: HeroVariant[] = []
+    for (const position of HERO_POSITIONS) {
+      const entry = byPos.get(position)
+      if (!entry) continue
+      fromCms.push({
+        pos: position,
+        mode: position < 0 ? "ads" : position === 0 ? "split" : "entertainment",
+        kicker: entry.kicker || "",
+        title: entry.title || undefined,
+        animatedPrefix: entry.animatedPrefix || undefined,
+        animatedWords: entry.animatedWords?.length ? entry.animatedWords : undefined,
+        tagline: entry.tagline || "",
+        mobileLines: undefined,
+        ctaHref: entry.topCtaHref || "#split",
+        topCtaLabel: entry.topCtaLabel || (position === 0 ? "AGÊNCIA DE VOZES" : "VER MÍDIA"),
+        topCtaHref: entry.topCtaHref || (position === 0 ? "#split" : "#midia"),
+        media: {
+          videoSrc: entry.videoSrc || "",
+          poster: entry.poster || "",
+          who: entry.who || "",
+          when: entry.when || "",
+          category: entry.category || "",
+          title: entry.modalTitle || entry.title || "",
+          subtitle: entry.subtitle || "",
+        },
+        mobileMedia: {
+          videoSrc: entry.videoSrc || "",
+          poster: entry.poster || entry.mobileBgImage || "",
+          who: entry.who || "",
+          when: entry.when || "",
+          category: entry.category || "",
+          title: entry.modalTitle || entry.title || "",
+          subtitle: entry.subtitle || "",
+        },
+        bgImage: entry.bgImage || "",
+        mobileBgImage: entry.mobileBgImage || entry.bgImage || "",
+      })
+    }
+
+    if (!fromCms.length) return heroVariants
+
+    const missingFallback = heroVariants.filter(
+      (fallback) => !fromCms.some((entry) => entry.pos === fallback.pos)
+    )
+
+    return [...fromCms, ...missingFallback].sort((a, b) => a.pos - b.pos)
+  }, [cmsContent.hero?.variants])
+
+  const variant = useMemo(() => {
+    const exact = heroCarouselVariants.find((entry) => entry.pos === pos)
+    if (exact) return exact
+    return heroCarouselVariants[0] ?? heroVariants[0]
+  }, [pos, heroCarouselVariants])
   const mobileReveal = isMobileViewport ? Math.max(0, Math.min(1, mobileRolloverProgress * 3)) : 0
 
   useEffect(() => {
-    const syncViewport = () => setIsMobileViewport(window.innerWidth < 640)
+    let cancelled = false
+    const hydrateContent = async () => {
+      try {
+        const remoteVersions = await loadVersionsRemote()
+        const versions = remoteVersions ?? loadVersions()
+        const latest = getLatestPublished(versions)
+        const remoteDraft = await loadDraftContentRemote()
+        const localDraft = loadDraftContent()
+        const nextContent = remoteDraft ?? localDraft ?? latest?.data_json
+        if (cancelled) return
+        setCmsContent(nextContent)
+      } catch (error) {
+        console.error("Failed to hydrate CMS content", error)
+      }
+    }
+    void hydrateContent()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const syncViewport = () => {
+      setIsMobileViewport(window.innerWidth < 640)
+      setMobileViewportWidth(window.innerWidth)
+    }
     syncViewport()
     window.addEventListener("resize", syncViewport)
     return () => window.removeEventListener("resize", syncViewport)
@@ -154,7 +250,7 @@ const Home: React.FC = () => {
 
   const openMedia = (current: HeroVariant) => {
     const currentMedia = getVariantMedia(current, isMobileViewport)
-    const idx = heroVariants.findIndex((entry) => entry.pos === current.pos)
+    const idx = heroCarouselVariants.findIndex((entry) => entry.pos === current.pos)
     setMediaIndex(idx >= 0 ? idx : 0)
     const fallback: MediaItem = {
       who: "",
@@ -170,10 +266,10 @@ const Home: React.FC = () => {
   }
 
   const goMedia = (direction: -1 | 1) => {
-    const total = heroVariants.length
+    const total = heroCarouselVariants.length
     if (total === 0) return
     const nextIndex = (mediaIndex + direction + total) % total
-    const nextVariant = heroVariants[nextIndex]
+    const nextVariant = heroCarouselVariants[nextIndex]
     const fallback: MediaItem = {
       who: "",
       when: "",
@@ -187,6 +283,31 @@ const Home: React.FC = () => {
     setMediaIndex(nextIndex)
     setMediaItem(nextMedia ?? fallback)
   }
+
+  const agencyRollover = Math.max(0, Math.min(1, mobileRolloverProgress))
+  const agencyWidthPx = 210
+  const agencyDownEnd = 0.82
+  const agencyLateralStart = 0.78
+  const agencyDownProgress = Math.max(0, Math.min(1, agencyRollover / agencyDownEnd))
+  const agencyRawRightProgress = Math.max(0, Math.min(1, (agencyRollover - agencyLateralStart) / (1 - agencyLateralStart)))
+  const agencyRightProgress = agencyRawRightProgress * agencyRawRightProgress * (3 - 2 * agencyRawRightProgress)
+  const agencyStartBottom = 112
+  const agencyEndBottom = 12
+  const agencyBottomPx = agencyStartBottom + (agencyEndBottom - agencyStartBottom) * agencyDownProgress
+  const agencyStartCenterX = mobileViewportWidth / 2
+  const agencyEndCenterX = mobileViewportWidth - 12 - agencyWidthPx / 2
+  const agencyCenterXPx = agencyStartCenterX + (agencyEndCenterX - agencyStartCenterX) * agencyRightProgress
+  const agencyDeltaX = agencyCenterXPx - agencyStartCenterX
+  const agencyDeltaY = agencyBottomPx - agencyEndBottom
+  const mobileAgencyStyle = isMobileViewport
+    ? {
+        left: "50%",
+        right: "auto",
+        bottom: `${agencyEndBottom}px`,
+        transform: `translate3d(calc(-50% + ${agencyDeltaX}px), ${-agencyDeltaY}px, 0)`,
+        willChange: "transform",
+      }
+    : undefined
 
   return (
     <>
@@ -293,15 +414,15 @@ const Home: React.FC = () => {
             />
           </div>
 
-          <Section02 />
+          <Section02 content={cmsContent.section02} />
 
-          <Section03 />
+          <Section03 content={cmsContent.section03} />
 
-          <Section04 />
+          <Section04 content={cmsContent.section04} talents={cmsContent.section07.talents} />
 
-          <Section05 />
+          <Section05 content={cmsContent.section05} />
 
-          <Section06 />
+          <Section06 content={cmsContent.section06} footer={cmsContent.footer} />
 
           <MediaModal
             open={mediaOpen}
@@ -326,9 +447,21 @@ const Home: React.FC = () => {
         mobileRolloverProgress={mobileRolloverProgress}
         mobileDocked={isMobileViewport}
         mobileReverseMotion={pos !== 0}
+        mobileShowAgencyInBar={isMobileViewport && pos !== 0}
       />
+      {!isMobileViewport || pos === 0 ? (
+        <div
+          className="pointer-events-none fixed bottom-4 left-1/2 z-[1001] w-[210px] max-w-[calc(100vw-1.5rem)] -translate-x-1/2 sm:bottom-7 sm:left-auto sm:right-12 sm:w-auto sm:max-w-none sm:translate-x-0 lg:right-16"
+          style={mobileAgencyStyle}
+        >
+          <div className="pointer-events-auto">
+            <RotatingAgencyButton />
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }
 
 export default Home
+
