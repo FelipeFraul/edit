@@ -57,42 +57,60 @@ const Home: React.FC = () => {
       })
 
     const byPos = new Map(active.map((entry) => [entry.pos, entry]))
+    const fallbackByPos = new Map(heroVariants.map((entry) => [entry.pos, entry]))
     const fromCms: HeroVariant[] = []
     for (const position of HERO_POSITIONS) {
       const entry = byPos.get(position)
       if (!entry) continue
+      const fallback = fallbackByPos.get(position)
+      const fallbackMedia = fallback?.media
+      const fallbackMobileMedia = fallback?.mobileMedia ?? fallback?.media
       fromCms.push({
         pos: position,
-        mode: position < 0 ? "ads" : position === 0 ? "split" : "entertainment",
-        kicker: entry.kicker || "",
-        title: entry.title || undefined,
-        animatedPrefix: entry.animatedPrefix || undefined,
-        animatedWords: entry.animatedWords?.length ? entry.animatedWords : undefined,
-        tagline: entry.tagline || "",
-        mobileLines: undefined,
-        ctaHref: entry.topCtaHref || "#split",
+        mode: fallback?.mode ?? (position < 0 ? "ads" : position === 0 ? "split" : "entertainment"),
+        kicker: entry.kicker || fallback?.kicker || "",
+        title: entry.title || fallback?.title || undefined,
+        animatedPrefix: entry.animatedPrefix || fallback?.animatedPrefix || undefined,
+        animatedWords: entry.animatedWords?.length ? entry.animatedWords : fallback?.animatedWords,
+        tagline: entry.tagline || fallback?.tagline || "",
+        mobileLines: fallback?.mobileLines,
+        ctaHref: fallback?.ctaHref || entry.topCtaHref || "#split",
         topCtaLabel: entry.topCtaLabel || (position === 0 ? "AGÊNCIA DE VOZES" : "VER MÍDIA"),
-        topCtaHref: entry.topCtaHref || (position === 0 ? "#split" : "#midia"),
+        topCtaHref: entry.topCtaHref || fallback?.topCtaHref || (position === 0 ? "#split" : "#midia"),
         media: {
-          videoSrc: entry.videoSrc || "",
-          poster: entry.poster || "",
-          who: entry.who || "",
-          when: entry.when || "",
-          category: entry.category || "",
-          title: entry.modalTitle || entry.title || "",
-          subtitle: entry.subtitle || "",
+          videoSrc: entry.videoSrc || fallbackMedia?.videoSrc || "",
+          poster: entry.poster || fallbackMedia?.poster || "",
+          who: entry.who || fallbackMedia?.who || "",
+          when: entry.when || fallbackMedia?.when || "",
+          category: entry.category || fallbackMedia?.category || "",
+          title: entry.modalTitle || entry.title || fallbackMedia?.title || "",
+          subtitle: entry.subtitle || fallbackMedia?.subtitle || "",
+          modalBodyText: entry.modalBodyText || fallbackMedia?.modalBodyText || "",
+          badgeResponsible: entry.badgeResponsible || fallbackMedia?.badgeResponsible || "",
+          badgeAgency: entry.badgeAgency || fallbackMedia?.badgeAgency || "",
+          badgeProdVideo: entry.badgeProdVideo || fallbackMedia?.badgeProdVideo || "",
+          badgeProdAudio: entry.badgeProdAudio || fallbackMedia?.badgeProdAudio || "",
+          badgeVoice: entry.badgeVoice || fallbackMedia?.badgeVoice || "",
+          badgeOperator: entry.badgeOperator || fallbackMedia?.badgeOperator || "",
         },
         mobileMedia: {
-          videoSrc: entry.videoSrc || "",
-          poster: entry.poster || entry.mobileBgImage || "",
-          who: entry.who || "",
-          when: entry.when || "",
-          category: entry.category || "",
-          title: entry.modalTitle || entry.title || "",
-          subtitle: entry.subtitle || "",
+          videoSrc: entry.videoSrc || fallbackMobileMedia?.videoSrc || fallbackMedia?.videoSrc || "",
+          poster: entry.poster || entry.mobileBgImage || fallbackMobileMedia?.poster || fallback?.mobileBgImage || "",
+          who: entry.who || fallbackMobileMedia?.who || fallbackMedia?.who || "",
+          when: entry.when || fallbackMobileMedia?.when || fallbackMedia?.when || "",
+          category: entry.category || fallbackMobileMedia?.category || fallbackMedia?.category || "",
+          title: entry.modalTitle || entry.title || fallbackMobileMedia?.title || fallbackMedia?.title || "",
+          subtitle: entry.subtitle || fallbackMobileMedia?.subtitle || fallbackMedia?.subtitle || "",
+          modalBodyText: entry.modalBodyText || fallbackMobileMedia?.modalBodyText || fallbackMedia?.modalBodyText || "",
+          badgeResponsible: entry.badgeResponsible || fallbackMobileMedia?.badgeResponsible || fallbackMedia?.badgeResponsible || "",
+          badgeAgency: entry.badgeAgency || fallbackMobileMedia?.badgeAgency || fallbackMedia?.badgeAgency || "",
+          badgeProdVideo: entry.badgeProdVideo || fallbackMobileMedia?.badgeProdVideo || fallbackMedia?.badgeProdVideo || "",
+          badgeProdAudio: entry.badgeProdAudio || fallbackMobileMedia?.badgeProdAudio || fallbackMedia?.badgeProdAudio || "",
+          badgeVoice: entry.badgeVoice || fallbackMobileMedia?.badgeVoice || fallbackMedia?.badgeVoice || "",
+          badgeOperator: entry.badgeOperator || fallbackMobileMedia?.badgeOperator || fallbackMedia?.badgeOperator || "",
         },
-        bgImage: entry.bgImage || "",
-        mobileBgImage: entry.mobileBgImage || entry.bgImage || "",
+        bgImage: entry.bgImage || fallback?.bgImage || "",
+        mobileBgImage: entry.mobileBgImage || fallback?.mobileBgImage || entry.bgImage || fallback?.bgImage || "",
       })
     }
 

@@ -1227,9 +1227,9 @@ const TaxonomyField: React.FC<{
           setText(next)
           onChange(buildTaxonomyFromPaths(next))
         }}
-        placeholder={"REGIÃƒO > NORDESTE\nREGIÃƒO > NORDESTE > SALVADOR\nIDIOMA > PORTUGUÃŠS"}
+        placeholder={"REGIÃO > NORDESTE\nREGIÃO > NORDESTE > SALVADOR\nIDIOMA > PORTUGUÊS"}
       />
-      <p className="text-[11px] text-black/55">Use &quot; &gt; &quot; para separar nÃ­veis.</p>
+      <p className="text-[11px] text-black/55">Use &quot; &gt; &quot; para separar níveis.</p>
     </div>
   )
 }
@@ -1302,7 +1302,7 @@ const LoginView: React.FC<{ onLogin: (session: AdminSession) => void }> = ({ onL
         onSubmit={(event) => {
           event.preventDefault()
           if (email.trim().toLowerCase() !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
-            setError("Credenciais invÃ¡lidas")
+            setError("Credenciais inválidas")
             return
           }
           const session: AdminSession = { email: ADMIN_EMAIL, logged_at: now() }
@@ -1411,13 +1411,20 @@ export default function AdminPage() {
     city: "",
     developerCredit: "",
   })
+  const fallbackHeroByPos = useMemo(
+    () => new Map(createDefaultAdminContent().hero.variants.map((entry) => [entry.pos, entry])),
+    []
+  )
 
   useEffect(() => {
     let cancelled = false
     const hydrateFromRemote = async () => {
       const [remoteDraft, remoteVersions] = await Promise.all([loadDraftContentRemote(), loadVersionsRemote()])
       if (cancelled) return
-      if (remoteDraft) setContent(remoteDraft)
+      if (remoteDraft) {
+        setContent(remoteDraft)
+        void saveDraftContentRemote(remoteDraft)
+      }
       if (remoteVersions && remoteVersions.length) {
         setVersions(remoteVersions)
         setStatus(getLatestPublished(remoteVersions) ? "published" : "draft")
@@ -1708,6 +1715,7 @@ export default function AdminPage() {
   const ensureHeroVariantByPos = (pos: -3 | -2 | -1 | 0 | 1 | 2 | 3) => {
     const found = visibleItems(content.hero.variants).find((entry) => entry.pos === pos)
     if (found) return found.id
+    const fallbackVariant = fallbackHeroByPos.get(pos)
     const newId = createId()
     mutateContent((prev) => ({
       ...prev,
@@ -1716,25 +1724,10 @@ export default function AdminPage() {
         variants: normalizeVisibleItems([
           ...prev.hero.variants,
           {
+            ...(fallbackVariant ?? createBase(visibleItems(prev.hero.variants).length + 1)),
             ...createBase(visibleItems(prev.hero.variants).length + 1),
             id: newId,
             pos,
-            kicker: "",
-            title: "",
-            animatedPrefix: "",
-            animatedWords: [],
-            tagline: "",
-            who: "",
-            when: "",
-            category: "",
-            modalTitle: "",
-            subtitle: "",
-            videoSrc: "",
-            poster: "",
-            bgImage: "",
-            mobileBgImage: "",
-            topCtaLabel: "",
-            topCtaHref: "",
           } as HeroVariantAdmin,
         ]),
       },
@@ -2007,7 +2000,7 @@ export default function AdminPage() {
 
   const saveSection07BulkModal = () => {
     if (section07BulkDraft.files.length === 0) {
-      window.alert("Selecione pelo menos um Ã¡udio.")
+      window.alert("Selecione pelo menos um áudio.")
       return
     }
     setContent((previous) => {
@@ -2229,6 +2222,7 @@ export default function AdminPage() {
   const createHeroFromDraft = () => {
     const pos = heroCreateType === "central" ? 0 : heroCreatePos
     mutateContent((prev) => {
+      const fallbackVariant = fallbackHeroByPos.get(pos)
       const currentAtPos = prev.hero.variants.find(
         (entry) => entry.pos === pos && !entry.deleted_at && entry.is_active
       )
@@ -2242,24 +2236,15 @@ export default function AdminPage() {
         }
       })
       const created: HeroVariantAdmin = {
+        ...(fallbackVariant ?? ({} as HeroVariantAdmin)),
         ...(createBase(visibleItems(prev.hero.variants).length + 1) as HeroVariantAdmin),
         pos,
-        kicker: "",
-        title: heroCreateDraft.title,
-        animatedPrefix: "",
-        animatedWords: [],
-        tagline: heroCreateDraft.tagline,
-        who: heroCreateDraft.who,
-        when: "",
-        category: "",
+        title: heroCreateDraft.title || fallbackVariant?.title || "",
+        tagline: heroCreateDraft.tagline || fallbackVariant?.tagline || "",
+        who: heroCreateDraft.who || fallbackVariant?.who || "",
         modalTitle: heroCreateDraft.title,
-        subtitle: "",
-        videoSrc: heroCreateDraft.videoSrc,
-        poster: "",
-        bgImage: heroCreateDraft.bgImage,
-        mobileBgImage: "",
-        topCtaLabel: "",
-        topCtaHref: "",
+        videoSrc: heroCreateDraft.videoSrc || fallbackVariant?.videoSrc || "",
+        bgImage: heroCreateDraft.bgImage || fallbackVariant?.bgImage || "",
       }
       return {
         ...prev,
@@ -2276,7 +2261,7 @@ export default function AdminPage() {
   }
 
   const deleteHeroPermanently = (id: string) => {
-    if (!window.confirm("Este quadro serÃ¡ excluÃ­do definitivamente. Deseja continuar?")) return
+    if (!window.confirm("Este quadro será excluído definitivamente. Deseja continuar?")) return
     mutateContent((prev) => ({
       ...prev,
       hero: {
@@ -2297,14 +2282,14 @@ export default function AdminPage() {
             <strong className="font-secular text-lg uppercase tracking-wide">Edit Group Admin</strong>
             <span className={`rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.14em] ${status === "published" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{status === "published" ? "Publicado" : "Rascunho"}</span>
             {lastSavedAt ? (
-              <span className="text-[11px] uppercase tracking-[0.12em] text-black/55">Salvo Ã s {lastSavedAt}</span>
+              <span className="text-[11px] uppercase tracking-[0.12em] text-black/55">Salvo às {lastSavedAt}</span>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={saveDraft}>Salvar Rascunho</Button>
             <Button className="bg-black text-white" onClick={publish}>Publicar</Button>
             <Button onClick={revertPublished}>Reverter</Button>
-            <Button onClick={() => setShowHistory((value) => !value)}>HistÃ³rico</Button>
+            <Button onClick={() => setShowHistory((value) => !value)}>Histórico</Button>
             <Button className="border-red-400 text-red-700" onClick={() => { clearAdminSession(); setSession(null) }}>Logout</Button>
           </div>
         </div>
@@ -2344,11 +2329,11 @@ export default function AdminPage() {
                     className={heroDeleteMode ? "border-red-500 bg-red-50 text-red-700" : "border-red-400 text-red-700"}
                     onClick={() => setHeroDeleteMode((prev) => !prev)}
                   >
-                    {heroDeleteMode ? "Cancelar ExclusÃ£o" : "Excluir Quadros"}
+                    {heroDeleteMode ? "Cancelar Exclusão" : "Excluir Quadros"}
                   </Button>
                 </div>
               </div>
-              <p className="text-sm text-black/70">Clique em uma caixa para editar. Arraste as caixas de clientes para reposicionar rapidamente. A caixa central (posiÃ§Ã£o 0) representa o vÃ­deo central e Ã© fixa.</p>
+              <p className="text-sm text-black/70">Clique em uma caixa para editar. Arraste as caixas de clientes para reposicionar rapidamente. A caixa central (posição 0) representa o vídeo central e é fixa.</p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
                 {heroSlots.map((slot) => {
                   const label =
@@ -2386,7 +2371,7 @@ export default function AdminPage() {
                           slot.pos === 0 ? "border-black bg-black text-white hover:bg-black/90" : "border-black/20 bg-white hover:bg-black/5"
                         }`}
                       >
-                        <div className="text-[10px] uppercase tracking-[0.16em] opacity-70">posiÃ§Ã£o {slot.pos}</div>
+                        <div className="text-[10px] uppercase tracking-[0.16em] opacity-70">posição {slot.pos}</div>
                         <div className="mt-2 text-sm font-semibold leading-tight">{label}</div>
                         <div className="mt-2 text-[11px] opacity-70">{slot.item?.is_active === false ? "Off" : "Ativo"}</div>
                       </button>
@@ -2395,7 +2380,7 @@ export default function AdminPage() {
                           type="button"
                           onClick={() => deleteHeroPermanently(slot.item!.id)}
                           className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center border border-red-500 bg-white text-xs font-semibold text-red-700 transition-colors duration-200 hover:bg-red-50"
-                          aria-label={`Excluir quadro da posiÃ§Ã£o ${slot.pos}`}
+                          aria-label={`Excluir quadro da posição ${slot.pos}`}
                         >
                           X
                         </button>
@@ -2406,26 +2391,26 @@ export default function AdminPage() {
               </div>
 
               <div className="space-y-2">
-                <h3 className="font-secular text-base uppercase">HistÃ³rico do Hero</h3>
+                <h3 className="font-secular text-base uppercase">Histórico do Hero</h3>
                 <p className="text-sm text-black/65">
-                  Itens fora do grid atual. VocÃª pode reaproveitar no slot de origem (inclui vÃ­deo central e slides).
+                  Itens fora do grid atual. Você pode reaproveitar no slot de origem (inclui vídeo central e slides).
                 </p>
                 {historicalHeroItems.length === 0 ? (
                   <div className="border border-dashed border-black/20 bg-white px-3 py-4 text-sm text-black/60">
-                    Nenhum item no histÃ³rico.
+                    Nenhum item no histórico.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {historicalHeroItems.map((item) => (
                       <div key={`hero-history-${item.id}`} className="border border-black/20 bg-white p-3">
                         <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">
-                          {item.pos === 0 ? "VÃDEO CENTRAL" : `SLIDE POSIÃ‡ÃƒO ${item.pos}`}
+                          {item.pos === 0 ? "VÍDEO CENTRAL" : `SLIDE POSIÇÃO ${item.pos}`}
                         </div>
                         <div className="mt-1 text-sm font-semibold text-black">
-                          {item.who?.trim() || item.title?.trim() || "Sem tÃ­tulo"}
+                          {item.who?.trim() || item.title?.trim() || "Sem título"}
                         </div>
                         <div className="mt-1 text-[11px] text-black/60">
-                          {item.deleted_at ? "ExcluÃ­do (histÃ³rico)" : item.is_active ? "Ativo fora do grid" : "Off"}
+                          {item.deleted_at ? "Excluído (histórico)" : item.is_active ? "Ativo fora do grid" : "Off"}
                         </div>
                         <div className="mt-2 flex items-center gap-2">
                           <Button onClick={() => reuseHistoricalHero(item.id)}>Reaproveitar</Button>
@@ -2438,7 +2423,7 @@ export default function AdminPage() {
 
               {heroCreateOpen ? (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
-                  <div className="w-full max-w-2xl border border-black/20 bg-white p-4 sm:p-6">
+                  <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto border border-black/20 bg-white p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                       <h3 className="font-secular text-lg uppercase">Novo Quadro do Hero</h3>
                       <button
@@ -2458,12 +2443,12 @@ export default function AdminPage() {
                           onChange={(event) => setHeroCreateType(event.target.value as "central" | "slide")}
                         >
                           <option value="slide">Slide de Cliente</option>
-                          <option value="central">ConteÃºdo Central</option>
+                          <option value="central">Conteúdo Central</option>
                         </select>
                       </label>
                       {heroCreateType === "slide" ? (
                         <label className="text-xs uppercase tracking-[0.14em]">
-                          PosiÃ§Ã£o do Slide
+                          Posição do Slide
                           <select
                             className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                             value={heroCreatePos}
@@ -2471,7 +2456,7 @@ export default function AdminPage() {
                           >
                             {[-3, -2, -1, 1, 2, 3].map((pos) => (
                               <option key={`new-hero-pos-${pos}`} value={pos}>
-                                posiÃ§Ã£o {pos}
+                                posição {pos}
                               </option>
                             ))}
                           </select>
@@ -2486,7 +2471,7 @@ export default function AdminPage() {
                         />
                       </label>
                       <label className="text-xs uppercase tracking-[0.14em]">
-                        TÃ­tulo Principal
+                        Título Principal
                         <input
                           className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                           value={heroCreateDraft.title}
@@ -2502,7 +2487,7 @@ export default function AdminPage() {
                         />
                       </label>
                       <label className="text-xs uppercase tracking-[0.14em]">
-                        URL do VÃ­deo
+                        URL do Vídeo
                         <AssetAutocompleteInput
                           value={heroCreateDraft.videoSrc}
                           options={ASSET_OPTIONS.videos}
@@ -2549,10 +2534,10 @@ export default function AdminPage() {
 
               {editingHeroPos !== null && editingHeroItem ? (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
-                  <div className="w-full max-w-2xl border border-black/20 bg-white p-4 sm:p-6">
+                  <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto border border-black/20 bg-white p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                       <h3 className="font-secular text-lg uppercase">
-                        Editar Hero {editingHeroPos === 0 ? "(VÃ­deo Central)" : `(Cliente ${editingHeroPos})`}
+                        Editar Hero {editingHeroPos === 0 ? "(Vídeo Central)" : `(Cliente ${editingHeroPos})`}
                       </h3>
                       <button type="button" onClick={() => setEditingHeroPos(null)} className="border border-black/20 px-2 py-1 text-xs uppercase transition-colors duration-200 hover:bg-black/5">Fechar</button>
                     </div>
@@ -2566,7 +2551,7 @@ export default function AdminPage() {
                         />
                       </label>
                       <label className="text-xs uppercase tracking-[0.14em]">
-                        TÃ­tulo principal
+                        Título principal
                         <input
                           className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                           value={editingHeroItem.title}
@@ -2581,9 +2566,67 @@ export default function AdminPage() {
                           onChange={(event) => updateEditingHero({ tagline: event.target.value })}
                         />
                       </label>
+                      <label className="text-xs uppercase tracking-[0.14em]">
+                        Texto da direita (modal)
+                        <textarea
+                          className="mt-1 min-h-24 w-full border border-black/20 px-2 py-2 text-sm"
+                          value={editingHeroItem.subtitle}
+                          onChange={(event) => updateEditingHero({ subtitle: event.target.value })}
+                        />
+                      </label>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label className="text-xs uppercase tracking-[0.14em]">
+                          Responsável
+                          <input
+                            className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
+                            value={editingHeroItem.badgeResponsible ?? ""}
+                            onChange={(event) => updateEditingHero({ badgeResponsible: event.target.value })}
+                          />
+                        </label>
+                        <label className="text-xs uppercase tracking-[0.14em]">
+                          Agência
+                          <input
+                            className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
+                            value={editingHeroItem.badgeAgency ?? ""}
+                            onChange={(event) => updateEditingHero({ badgeAgency: event.target.value })}
+                          />
+                        </label>
+                        <label className="text-xs uppercase tracking-[0.14em]">
+                          Prod. Vídeo
+                          <input
+                            className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
+                            value={editingHeroItem.badgeProdVideo ?? ""}
+                            onChange={(event) => updateEditingHero({ badgeProdVideo: event.target.value })}
+                          />
+                        </label>
+                        <label className="text-xs uppercase tracking-[0.14em]">
+                          Prod. Áudio
+                          <input
+                            className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
+                            value={editingHeroItem.badgeProdAudio ?? ""}
+                            onChange={(event) => updateEditingHero({ badgeProdAudio: event.target.value })}
+                          />
+                        </label>
+                        <label className="text-xs uppercase tracking-[0.14em]">
+                          Locutor
+                          <input
+                            className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
+                            value={editingHeroItem.badgeVoice ?? ""}
+                            onChange={(event) => updateEditingHero({ badgeVoice: event.target.value })}
+                          />
+                        </label>
+                        <label className="text-xs uppercase tracking-[0.14em]">
+                          Operador
+                          <input
+                            className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
+                            value={editingHeroItem.badgeOperator ?? ""}
+                            onChange={(event) => updateEditingHero({ badgeOperator: event.target.value })}
+                          />
+                        </label>
+                      </div>
                       {editingHeroPos === 0 ? (
                         <label className="text-xs uppercase tracking-[0.14em]">
-                          Palavras que trocam (separadas por vÃ­rgula)
+                          Palavras que trocam (separadas por vírgula)
                           <input
                             className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                             value={editingHeroItem.animatedWords.join(", ")}
@@ -2600,7 +2643,7 @@ export default function AdminPage() {
                         </label>
                       ) : null}
                       <label className="text-xs uppercase tracking-[0.14em]">
-                        URL do vÃ­deo
+                        URL do vídeo
                         <AssetAutocompleteInput
                           value={editingHeroItem.videoSrc}
                           options={ASSET_OPTIONS.videos}
@@ -2642,7 +2685,7 @@ export default function AdminPage() {
                         <Button
                           className="border-red-400 text-red-700"
                           onClick={() =>
-                            deleteWithConfirm("esta variaÃ§Ã£o do hero", () =>
+                            deleteWithConfirm("esta variação do hero", () =>
                               mutateContent((prev) => ({
                                 ...prev,
                                 hero: { ...prev.hero, variants: markDeleted(prev.hero.variants, editingHeroItem.id) },
@@ -2663,12 +2706,12 @@ export default function AdminPage() {
           {activeSection === "section02" ? (
             <section className="space-y-3 border border-black/10 bg-white/60 p-3">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-secular text-xl uppercase">SeÃ§Ã£o EstÃºdio</h2>
+                <h2 className="font-secular text-xl uppercase">Seção Estúdio</h2>
                 <div className="flex gap-2">
-                  <Button onClick={() => openSectionMeta("section02")}>Editar SeÃ§Ã£o</Button>
+                  <Button onClick={() => openSectionMeta("section02")}>Editar Seção</Button>
                 </div>
               </div>
-              <p className="text-sm text-black/70">VisÃ£o em quadros. Clique em editar para atualizar via modal.</p>
+              <p className="text-sm text-black/70">Visão em quadros. Clique em editar para atualizar via modal.</p>
               <section className="space-y-2">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {visibleItems(content.section02.cards).slice(0, 3).map((card) => (
@@ -2690,7 +2733,7 @@ export default function AdminPage() {
 
           {activeSection === "section03"
             ? <SectionEditor
-                title="SeÃ§Ã£o ProduÃ§Ã£o"
+                title="Seção Produção"
                 text={content.section03.text}
                 heading={content.section03.title}
                 onHeading={(value) => mutateContent((prev) => ({ ...prev, section03: { ...prev.section03, title: value } }))}
@@ -2712,14 +2755,14 @@ export default function AdminPage() {
           {activeSection === "section04" ? (
             <section className="space-y-3 border border-black/10 bg-white/60 p-3">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-secular text-xl uppercase">SeÃ§Ã£o Vozes</h2>
+                <h2 className="font-secular text-xl uppercase">Seção Vozes</h2>
                 <div className="flex gap-2">
-                  <Button onClick={() => openSectionMeta("section04")}>Editar SeÃ§Ã£o</Button>
+                  <Button onClick={() => openSectionMeta("section04")}>Editar Seção</Button>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="border border-black/15 bg-white p-3">
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">TÃ­tulo</div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">Título</div>
                   <div className="mt-1 text-sm text-black/90">{content.section04.title}</div>
                 </div>
                 <div className="border border-black/15 bg-white p-3">
@@ -2754,14 +2797,14 @@ export default function AdminPage() {
           {activeSection === "section05" ? (
             <section className="space-y-3 border border-black/10 bg-white/60 p-3">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-secular text-xl uppercase">SeÃ§Ã£o Clientes</h2>
+                <h2 className="font-secular text-xl uppercase">Seção Clientes</h2>
                 <div className="flex gap-2">
-                  <Button onClick={() => openSectionMeta("section05")}>Editar SeÃ§Ã£o</Button>
+                  <Button onClick={() => openSectionMeta("section05")}>Editar Seção</Button>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="border border-black/15 bg-white p-3">
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">TÃ­tulo</div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">Título</div>
                   <div className="mt-1 text-sm text-black/90">{content.section05.title}</div>
                 </div>
                 <div className="border border-black/15 bg-white p-3">
@@ -2782,7 +2825,7 @@ export default function AdminPage() {
                       <div className="text-xs text-black/70 line-clamp-1">{row.brand.logo ? getAssetFileName(row.brand.logo) : "Sem logo"}</div>
                       <div className="text-xs text-black/70 line-clamp-1">{row.brand.secondaryLogo ? getAssetFileName(row.brand.secondaryLogo) : "Sem segundo logo"}</div>
                       <div className="text-xs text-black/70 line-clamp-2">{row.panel?.companyText || row.panel?.description || "Sem texto"}</div>
-                      <div className="text-xs text-black/55 line-clamp-1">{row.panel?.videoSrc || "Sem vÃ­deo"}</div>
+                      <div className="text-xs text-black/55 line-clamp-1">{row.panel?.videoSrc || "Sem vídeo"}</div>
                       <div className="flex items-center justify-end">
                         <Button onClick={() => openSection05BrandModal(row.brand.id)}>Editar</Button>
                       </div>
@@ -2795,14 +2838,14 @@ export default function AdminPage() {
           {activeSection === "section06" ? (
             <section className="space-y-3 border border-black/10 bg-white/60 p-3">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-secular text-xl uppercase">SeÃ§Ã£o NÃºmeros</h2>
+                <h2 className="font-secular text-xl uppercase">Seção Números</h2>
                 <div className="flex gap-2">
-                  <Button onClick={() => openSectionMeta("section06")}>Editar SeÃ§Ã£o</Button>
+                  <Button onClick={() => openSectionMeta("section06")}>Editar Seção</Button>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="border border-black/15 bg-white p-3">
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">TÃ­tulo</div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">Título</div>
                   <div className="mt-1 text-sm text-black/90">{content.section06.title}</div>
                 </div>
                 <div className="border border-black/15 bg-white p-3">
@@ -2810,11 +2853,11 @@ export default function AdminPage() {
                   <div className="mt-1 text-sm text-black/80 line-clamp-3">{content.section06.text}</div>
                 </div>
               </div>
-              <SectionEditor title="MÃ©tricas" text="" heading="" onHeading={() => {}} onText={() => {}} items={content.section06.stats} onItems={(items) => mutateContent((prev) => ({ ...prev, section06: { ...prev.section06, stats: items as typeof prev.section06.stats } }))} template={{ value: "+0", title: "Nova mÃ©trica", description: "" }} fields={["value", "title", "description"]} deleteWithConfirm={deleteWithConfirm} onSave={saveNow} allowCreate={false} showToggleDelete={false} fitContent fitContentClass="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4" hideSaveButtons />
-              <SectionEditor title="Colunas do RodapÃ©" text="" heading="" onHeading={() => {}} onText={() => {}} items={content.footer.columns} onItems={(items) => mutateContent((prev) => ({ ...prev, footer: { ...prev.footer, columns: items as typeof prev.footer.columns } }))} template={{ title: "Nova coluna", links: [] as FooterLinkAdmin[] }} fields={["title"]} deleteWithConfirm={deleteWithConfirm} onSave={saveNow} extraField={(item, onPatch) => <FooterLinksField value={(item as { links: FooterLinkAdmin[] }).links} onChange={(value) => onPatch({ links: value })} />} allowCreate={false} showToggleDelete={false} fitContent fitContentClass="grid grid-cols-1 gap-3 md:grid-cols-3" hideSaveButtons />
+              <SectionEditor title="Métricas" text="" heading="" onHeading={() => {}} onText={() => {}} items={content.section06.stats} onItems={(items) => mutateContent((prev) => ({ ...prev, section06: { ...prev.section06, stats: items as typeof prev.section06.stats } }))} template={{ value: "+0", title: "Nova métrica", description: "" }} fields={["value", "title", "description"]} deleteWithConfirm={deleteWithConfirm} onSave={saveNow} allowCreate={false} showToggleDelete={false} fitContent fitContentClass="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4" hideSaveButtons />
+              <SectionEditor title="Colunas do Rodapé" text="" heading="" onHeading={() => {}} onText={() => {}} items={content.footer.columns} onItems={(items) => mutateContent((prev) => ({ ...prev, footer: { ...prev.footer, columns: items as typeof prev.footer.columns } }))} template={{ title: "Nova coluna", links: [] as FooterLinkAdmin[] }} fields={["title"]} deleteWithConfirm={deleteWithConfirm} onSave={saveNow} extraField={(item, onPatch) => <FooterLinksField value={(item as { links: FooterLinkAdmin[] }).links} onChange={(value) => onPatch({ links: value })} />} allowCreate={false} showToggleDelete={false} fitContent fitContentClass="grid grid-cols-1 gap-3 md:grid-cols-3" hideSaveButtons />
               <section className="space-y-2 border border-black/10 bg-white/60 p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-secular text-lg uppercase">InformaÃ§Ãµes Legais</h3>
+                  <h3 className="font-secular text-lg uppercase">Informações Legais</h3>
                   <div className="flex gap-2">
                     <Button onClick={openFooterMetaModal}>Editar</Button>
                   </div>
@@ -2837,14 +2880,14 @@ export default function AdminPage() {
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-secular text-xl uppercase">Locutores</h2>
                 <div className="flex gap-2">
-                  <Button onClick={() => openSectionMeta("section07")}>Editar SeÃ§Ã£o</Button>
+                  <Button onClick={() => openSectionMeta("section07")}>Editar Seção</Button>
                   <Button onClick={() => openSection07TalentModal("new")}>Novo Locutor</Button>
                   <Button onClick={saveNow}>Salvar</Button>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="border border-black/15 bg-white p-3">
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">TÃ­tulo</div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">Título</div>
                   <div className="mt-1 text-sm text-black/90">{content.section07.title}</div>
                 </div>
                 <div className="border border-black/15 bg-white p-3">
@@ -2861,7 +2904,7 @@ export default function AdminPage() {
                     value={talentFilterGenero}
                     onChange={(event) => setTalentFilterGenero(event.target.value)}
                   >
-                    <option value="">GÃªnero: Todos</option>
+                    <option value="">Gênero: Todos</option>
                     <option value="MASCULINA">Masculino</option>
                     <option value="FEMININA">Feminino</option>
                   </select>
@@ -2870,7 +2913,7 @@ export default function AdminPage() {
                     value={talentFilterRegiao}
                     onChange={(event) => setTalentFilterRegiao(event.target.value)}
                   >
-                    <option value="">RegiÃ£o: Todas</option>
+                    <option value="">Região: Todas</option>
                     {regionFilterOptions.map((option) => (
                       <option key={`filter-regiao-${option}`} value={option}>
                         {option}
@@ -2903,7 +2946,7 @@ export default function AdminPage() {
                   </select>
                   <input
                     className="w-full border border-black/20 px-2 py-2 text-sm"
-                    placeholder="Pesquisar locutor, Ã¡udio ou filtro"
+                    placeholder="Pesquisar locutor, áudio ou filtro"
                     value={talentSearch}
                     onChange={(event) => setTalentSearch(event.target.value)}
                   />
@@ -2915,7 +2958,7 @@ export default function AdminPage() {
                   <div key={talent.id} className="border border-black/15 bg-white p-3 space-y-2">
                     <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">Locutor</div>
                     <div className="text-sm font-semibold text-black">{talent.name || "-"}</div>
-                    <div className="text-xs text-black/60 line-clamp-1">{talent.audioFile ? getAssetFileName(talent.audioFile) : "Sem Ã¡udio"}</div>
+                    <div className="text-xs text-black/60 line-clamp-1">{talent.audioFile ? getAssetFileName(talent.audioFile) : "Sem áudio"}</div>
                     <div className="space-y-1 text-[11px] text-black/65">
                       {voiceFilters.map((filter) => {
                         const key = normalizeFilterKey(filter.name) as VoiceFilterKey
@@ -2965,12 +3008,12 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
           <div className="w-full max-w-xl border border-black/20 bg-white p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <h3 className="font-secular text-lg uppercase">Editar SeÃ§Ã£o</h3>
+              <h3 className="font-secular text-lg uppercase">Editar Seção</h3>
               <Button onClick={() => setSectionMetaModal(null)}>Fechar</Button>
             </div>
             <div className="mt-4 grid gap-3">
               <label className="text-xs uppercase tracking-[0.14em]">
-                TÃ­tulo
+                Título
                 <input
                   className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                   value={sectionMetaDraft.title}
@@ -2997,12 +3040,12 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
           <div className="w-full max-w-xl border border-black/20 bg-white p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <h3 className="font-secular text-lg uppercase">Editar Quadro do EstÃºdio</h3>
+              <h3 className="font-secular text-lg uppercase">Editar Quadro do Estúdio</h3>
               <Button onClick={() => setSection02CardModalId(null)}>Fechar</Button>
             </div>
             <div className="mt-4 grid gap-3">
               <label className="text-xs uppercase tracking-[0.14em]">
-                TÃ­tulo do quadro
+                Título do quadro
                 <input
                   className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                   value={section02CardDraft.title}
@@ -3010,7 +3053,7 @@ export default function AdminPage() {
                 />
               </label>
               <label className="text-xs uppercase tracking-[0.14em]">
-                Ãcone
+                Ícone
                 <AssetAutocompleteInput
                   value={section02CardDraft.icon}
                   options={ASSET_OPTIONS.icons}
@@ -3142,7 +3185,7 @@ export default function AdminPage() {
                 </div>
               </label>
               <label className="text-xs uppercase tracking-[0.14em]">
-                TÃ­tulo Interno
+                Título Interno
                 <input
                   className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                   value={section05Draft.title}
@@ -3150,7 +3193,7 @@ export default function AdminPage() {
                 />
               </label>
               <label className="text-xs uppercase tracking-[0.14em]">
-                DescriÃ§Ã£o Curta
+                Descrição Curta
                 <textarea
                   className="mt-1 min-h-20 w-full border border-black/20 px-2 py-2 text-sm"
                   value={section05Draft.description}
@@ -3166,13 +3209,13 @@ export default function AdminPage() {
                 />
               </label>
               <label className="text-xs uppercase tracking-[0.14em]">
-                URL do VÃ­deo
+                URL do Vídeo
                 <AssetAutocompleteInput
                   value={section05Draft.videoSrc}
                   options={ASSET_OPTIONS.videos}
                   onChange={(value) => setSection05Draft((prev) => ({ ...prev, videoSrc: value }))}
                   displayFileName={false}
-                  placeholder="Cole uma URL do Vimeo, YouTube ou arquivo de vÃ­deo..."
+                  placeholder="Cole uma URL do Vimeo, YouTube ou arquivo de vídeo..."
                 />
               </label>
               <div className="flex gap-2">
@@ -3202,7 +3245,7 @@ export default function AdminPage() {
                 />
               </label>
               <label className="text-xs uppercase tracking-[0.14em]">
-                Arquivo de Ã¡udio
+                Arquivo de áudio
                 <AssetAutocompleteInput
                   value={section07Draft.audioFile}
                   options={ASSET_OPTIONS.audios}
@@ -3210,7 +3253,7 @@ export default function AdminPage() {
                 />
               </label>
               <label className="text-xs uppercase tracking-[0.14em]">
-                Subir Ã¡udio (servidor)
+                Subir áudio (servidor)
                 <input
                   type="file"
                   accept="audio/*"
@@ -3231,25 +3274,25 @@ export default function AdminPage() {
                 <div className="text-[11px] uppercase tracking-[0.14em] text-black/75">Filtros</div>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                   <label className="text-xs uppercase tracking-[0.14em]">
-                    GÃªnero
+                    Gênero
                     <select
                       className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                       value={section07FilterDraft.genero}
                       onChange={(event) => setSection07FilterDraft((prev) => ({ ...prev, genero: event.target.value }))}
                     >
-                      <option value="">NÃ£o definir</option>
+                      <option value="">Não definir</option>
                       <option value="MASCULINA">Masculino</option>
                       <option value="FEMININA">Feminino</option>
                     </select>
                   </label>
                   <label className="text-xs uppercase tracking-[0.14em]">
-                    RegiÃ£o
+                    Região
                     <select
                       className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                       value={section07FilterDraft.regiao}
                       onChange={(event) => setSection07FilterDraft((prev) => ({ ...prev, regiao: event.target.value }))}
                     >
-                      <option value="">NÃ£o definir</option>
+                      <option value="">Não definir</option>
                       {regionFilterOptions.map((option) => (
                         <option key={`edit-regiao-${option}`} value={option}>
                           {option}
@@ -3264,7 +3307,7 @@ export default function AdminPage() {
                       value={section07FilterDraft.idioma}
                       onChange={(event) => setSection07FilterDraft((prev) => ({ ...prev, idioma: event.target.value }))}
                     >
-                      <option value="">NÃ£o definir</option>
+                      <option value="">Não definir</option>
                       {idiomaFilterOptions.map((option) => (
                         <option key={`edit-idioma-${option}`} value={option}>
                           {option}
@@ -3279,7 +3322,7 @@ export default function AdminPage() {
                       value={section07FilterDraft.estilo}
                       onChange={(event) => setSection07FilterDraft((prev) => ({ ...prev, estilo: event.target.value }))}
                     >
-                      <option value="">NÃ£o definir</option>
+                      <option value="">Não definir</option>
                       {estiloFilterOptions.map((option) => (
                         <option key={`edit-estilo-${option}`} value={option}>
                           {option}
@@ -3307,7 +3350,7 @@ export default function AdminPage() {
             </div>
             <div className="mt-4 grid gap-3">
               <p className="text-sm text-black/70">
-                Defina manualmente os filtros em sequÃªncia (gÃªnero, regiÃ£o, idioma e estilo) e importe a pasta.
+                Defina manualmente os filtros em sequência (gênero, região, idioma e estilo) e importe a pasta.
               </p>
 
               <label className="text-xs uppercase tracking-[0.14em]">
@@ -3329,7 +3372,7 @@ export default function AdminPage() {
 
               <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
                 <label className="text-xs uppercase tracking-[0.14em]">
-                  GÃªnero
+                  Gênero
                   <select
                     className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                     value={section07BulkDraft.manual.genero}
@@ -3337,13 +3380,13 @@ export default function AdminPage() {
                       setSection07BulkDraft((prev) => ({ ...prev, manual: { ...prev.manual, genero: event.target.value } }))
                     }
                   >
-                    <option value="">NÃ£o definir</option>
+                    <option value="">Não definir</option>
                     <option value="MASCULINA">Masculino</option>
                     <option value="FEMININA">Feminino</option>
                   </select>
                 </label>
                 <label className="text-xs uppercase tracking-[0.14em]">
-                  RegiÃ£o
+                  Região
                   <select
                     className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                     value={section07BulkDraft.manual.regiao}
@@ -3351,7 +3394,7 @@ export default function AdminPage() {
                       setSection07BulkDraft((prev) => ({ ...prev, manual: { ...prev.manual, regiao: event.target.value } }))
                     }
                   >
-                    <option value="">NÃ£o definir</option>
+                    <option value="">Não definir</option>
                     {regionFilterOptions.map((option) => (
                       <option key={`bulk-manual-regiao-${option}`} value={option}>
                         {option}
@@ -3368,7 +3411,7 @@ export default function AdminPage() {
                       setSection07BulkDraft((prev) => ({ ...prev, manual: { ...prev.manual, idioma: event.target.value } }))
                     }
                   >
-                    <option value="">NÃ£o definir</option>
+                    <option value="">Não definir</option>
                     {idiomaFilterOptions.map((option) => (
                       <option key={`bulk-manual-idioma-${option}`} value={option}>
                         {option}
@@ -3385,7 +3428,7 @@ export default function AdminPage() {
                       setSection07BulkDraft((prev) => ({ ...prev, manual: { ...prev.manual, estilo: event.target.value } }))
                     }
                   >
-                    <option value="">NÃ£o definir</option>
+                    <option value="">Não definir</option>
                     {estiloFilterOptions.map((option) => (
                       <option key={`bulk-manual-estilo-${option}`} value={option}>
                         {option}
@@ -3396,7 +3439,7 @@ export default function AdminPage() {
               </div>
 
               <label className="text-xs uppercase tracking-[0.14em]">
-                Subir pasta de Ã¡udios
+                Subir pasta de áudios
                 <input
                   type="file"
                   accept="audio/*"
@@ -3476,11 +3519,11 @@ export default function AdminPage() {
                             x
                           </button>
                           <div className="text-[12px]">
-                            {getAssetFileName(relativePath)} Ã¢â€ â€™ {inferTalentNameFromFileName(file.name, relativePath)}
+                            {getAssetFileName(relativePath)} {"->"} {inferTalentNameFromFileName(file.name, relativePath)}
                           </div>
                           <div className="mt-1 text-[11px] text-black/65">{relativePath}</div>
                           <div className="mt-1 text-[11px]">
-                            <span className="font-semibold">DiagnÃ³stico: </span>
+                            <span className="font-semibold">Diagnóstico: </span>
                             <span>
                               {resolution.source === "manual"
                                 ? "manual"
@@ -3488,7 +3531,7 @@ export default function AdminPage() {
                                   ? "pasta"
                                   : resolution.source === "filename"
                                     ? "nome do arquivo"
-                                    : "sem correspondÃªncia"}
+                                    : "sem correspondência"}
                             </span>
                             {warnings.length ? (
                               <span className="text-red-700"> | {warnings.join(" | ")}</span>
@@ -3519,7 +3562,7 @@ export default function AdminPage() {
 
               <div className="flex gap-2">
                 <Button className="bg-black text-white" onClick={saveSection07BulkModal}>
-                  Importar Ãudios
+                  Importar Áudios
                 </Button>
               </div>
             </div>
@@ -3531,7 +3574,7 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
           <div className="w-full max-w-xl border border-black/20 bg-white p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <h3 className="font-secular text-lg uppercase">Editar InformaÃ§Ãµes Legais</h3>
+              <h3 className="font-secular text-lg uppercase">Editar Informações Legais</h3>
               <Button onClick={() => setFooterMetaModalOpen(false)}>Fechar</Button>
             </div>
             <div className="mt-4 grid gap-3">
@@ -3562,13 +3605,13 @@ export default function AdminPage() {
       {showHistory ? (
         <aside className="fixed right-0 top-[68px] z-40 h-[calc(100vh-68px)] w-full max-w-md border-l border-black/15 bg-white p-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-secular text-lg uppercase">HistÃ³rico</h3>
+            <h3 className="font-secular text-lg uppercase">Histórico</h3>
             <Button onClick={() => setShowHistory(false)}>Fechar</Button>
           </div>
           <div className="mt-3 space-y-2 overflow-y-auto max-h-[calc(100%-36px)]">
             {versions.slice().sort((a, b) => b.version_number - a.version_number).map((version) => (
               <div key={version.id} className="border border-black/15 p-3">
-                <p className="text-xs uppercase tracking-[0.13em] text-black/70">VersÃ£o {version.version_number}</p>
+                <p className="text-xs uppercase tracking-[0.13em] text-black/70">Versão {version.version_number}</p>
                 <p className="text-[12px] text-black/70">{new Date(version.created_at).toLocaleString()}</p>
                 <Button onClick={() => revertToVersion(version)}>Reverter para esta</Button>
               </div>
@@ -3690,7 +3733,7 @@ function SectionEditor<T extends BaseItem>({
       {heading || text ? (
         <div className={topBlockWrapClass}>
           <div className={topBlockCardClass}>
-            <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">TÃ­tulo</div>
+            <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">Título</div>
             <div className="mt-1 text-sm text-black/90">{heading || "-"}</div>
           </div>
           <div className={topBlockCardClass}>
@@ -3707,7 +3750,7 @@ function SectionEditor<T extends BaseItem>({
       {activeItems.map((item) => (
         <div key={item.id} draggable onDragStart={() => setDragId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dragId && onItems(reorderByIds(items, dragId, item.id))} className={itemCardClass}>
           <div className="text-[10px] uppercase tracking-[0.16em] text-black/60">Quadro</div>
-          <div className="text-sm font-semibold text-black">{String(item[fields[0]] ?? "Sem tÃ­tulo")}</div>
+          <div className="text-sm font-semibold text-black">{String(item[fields[0]] ?? "Sem título")}</div>
           {fields[1] ? <div className="text-sm text-black/70 line-clamp-2">{String(item[fields[1]] ?? "-")}</div> : null}
           <div className="flex items-center justify-between gap-2">
             <CrudActions
@@ -3732,7 +3775,7 @@ function SectionEditor<T extends BaseItem>({
             </div>
             <div className="mt-4 grid gap-3">
               <label className="text-xs uppercase tracking-[0.14em]">
-                TÃ­tulo
+                Título
                 <input className="mt-1 w-full border border-black/20 px-2 py-2 text-sm" value={sectionDraft.heading} onChange={(event) => setSectionDraft((prev) => ({ ...prev, heading: event.target.value }))} />
               </label>
               <label className="text-xs uppercase tracking-[0.14em]">

@@ -27,6 +27,13 @@ export type HeroVariantAdmin = BaseItem & {
   mobileBgImage: string
   topCtaLabel: string
   topCtaHref: string
+  modalBodyText?: string
+  badgeResponsible?: string
+  badgeAgency?: string
+  badgeProdVideo?: string
+  badgeProdAudio?: string
+  badgeVoice?: string
+  badgeOperator?: string
 }
 
 export type SectionCard = BaseItem & {

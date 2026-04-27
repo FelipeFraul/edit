@@ -4,3 +4,9 @@ dist
 *.tsbuildinfo
 .env
 .env.local
+.git - Copia/
+auth
+auth-wal
+db
+db-wal
+typescript

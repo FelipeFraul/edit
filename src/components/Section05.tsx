@@ -557,11 +557,7 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
                           referrerPolicy="strict-origin-when-cross-origin"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center p-6 sm:p-8">
-                          <p className="font-barlow-thin text-[12px] uppercase tracking-[0.2em] text-black/45">
-                            Sem video configurado no Admin
-                          </p>
-                        </div>
+                        <div className="h-full w-full" />
                       )}
                     </div>
                   </div>

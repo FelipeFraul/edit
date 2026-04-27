@@ -178,6 +178,13 @@ const heroVariantItems = heroVariants
       category: variant.media.category ?? "",
       modalTitle: variant.media.title ?? "",
       subtitle: variant.media.subtitle ?? "",
+      modalBodyText: variant.media.modalBodyText ?? "",
+      badgeResponsible: variant.media.badgeResponsible ?? "",
+      badgeAgency: variant.media.badgeAgency ?? "",
+      badgeProdVideo: variant.media.badgeProdVideo ?? "",
+      badgeProdAudio: variant.media.badgeProdAudio ?? "",
+      badgeVoice: variant.media.badgeVoice ?? "",
+      badgeOperator: variant.media.badgeOperator ?? "",
       videoSrc: variant.media.videoSrc ?? "",
       poster: variant.media.poster ?? "",
       bgImage: variant.bgImage ?? "",
@@ -233,7 +240,7 @@ export const createDefaultAdminContent = (): AdminContent => ({
   section03: {
     title: "A CRIAÇÃO",
     text:
-      "A Edit Group une direção criativa e técnica para transformar demanda em produção consistente.",
+      "Edit Group une direção criativa e técnica para transformar demanda em produção consistente, garantindo qualidade, escala e identidade sonora em cada projeto, com processos otimizados e alto padrão de entrega.",
     steps: [
       mkStep(1, "EDIÇÃO", "Organização narrativa e precisão técnica dos elementos sonoros.", "/assets/icon/settings-2-svgrepo-com.svg"),
       mkStep(2, "MIXAGEM", "Equilíbrio de camadas para clareza, impacto e identidade de marca.", "/assets/icon/settings-svgrepo-com.svg"),

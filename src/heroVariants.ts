@@ -6,6 +6,13 @@ export type MediaItem = {
   category: string
   title?: string
   subtitle?: string
+  modalBodyText?: string
+  badgeResponsible?: string
+  badgeAgency?: string
+  badgeProdVideo?: string
+  badgeProdAudio?: string
+  badgeVoice?: string
+  badgeOperator?: string
 }
 
 export type HeroVariant = {

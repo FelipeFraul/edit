@@ -27,11 +27,11 @@ export default function MediaModal({
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [hasStarted, setHasStarted] = useState(false)
 
-  const texto = `
+  const fallbackTexto = `
 Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. 
 Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. 
 `
-  const compactText = texto.replace(/\s+/g, " ").trim()
+  const compactText = (item?.modalBodyText?.trim() || item?.subtitle?.trim() || fallbackTexto).replace(/\s+/g, " ").trim()
   const sentences = compactText
     .split(".")
     .map((s) => s.trim())
@@ -43,6 +43,14 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
       <span className="block h-[16px]" aria-hidden="true" />
     </React.Fragment>
   ))
+  const credits = [
+    { title: "RESPONSÁVEL", value: item?.badgeResponsible || "Felipe Fraul" },
+    { title: "AGÊNCIA", value: item?.badgeAgency || "Thruster" },
+    { title: "PROD. VÍDEO", value: item?.badgeProdVideo || "O2 filmes" },
+    { title: "PROD. ÁUDIO", value: item?.badgeProdAudio || "Edit Group" },
+    { title: "LOCUTOR", value: item?.badgeVoice || "Bruno Rochel" },
+    { title: "OPERADOR", value: item?.badgeOperator || "Felipe Fraul" },
+  ]
 
   useEffect(() => {
     setMounted(true)
@@ -348,14 +356,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                     </div>
                   </div>
                   <div className="mt-10 flex flex-wrap gap-3">
-                    {[
-                      { title: "RESPONSÁVEL", value: "Felipe Fraul" },
-                      { title: "AGÊNCIA", value: "Thruster" },
-                      { title: "PROD. VÍDEO", value: "O2 filmes" },
-                      { title: "PROD. ÁUDIO", value: "Edit Group" },
-                      { title: "LOCUTOR", value: "Bruno Rochel" },
-                      { title: "OPERADOR", value: "Felipe Fraul" },
-                    ].map((badge) => (
+                    {credits.map((badge) => (
                       <div
                         key={badge.title}
                           className="relative inline-flex items-center rounded-none border border-white/40 bg-transparent px-4 py-2 text-[9px] font-semibold tracking-[0.4em] text-white/70 backdrop-blur-sm whitespace-nowrap"

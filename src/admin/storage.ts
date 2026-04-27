@@ -232,6 +232,11 @@ const normalizeDraftContent = (fromStorage: AdminContent, fallback: AdminContent
 
   return normalizeTalentAssignments({
     ...fromStorage,
+    hero: {
+      ...fallback.hero,
+      ...fromStorage.hero,
+      variants: normalizeHeroVariants(fromStorage.hero?.variants, fallback.hero.variants),
+    },
     section04: {
       ...fromStorage.section04,
       filters: buildCanonicalSection04Filters(fromStorage.section04?.filters ?? fallback.section04.filters),
@@ -265,6 +270,40 @@ const buildEmptySection05Model = (fallback: AdminContent): AdminContent["section
   panels: [],
   audios: [],
 })
+
+const normalizeHeroVariants = (
+  fromStorage: AdminContent["hero"]["variants"] | undefined,
+  fallback: AdminContent["hero"]["variants"]
+): AdminContent["hero"]["variants"] => {
+  const stored = fromStorage ?? []
+  if (!stored.length) return fallback
+
+  const storedByPos = new Map(stored.map((entry) => [entry.pos, entry]))
+  const fallbackByPos = new Map(fallback.map((entry) => [entry.pos, entry]))
+
+  const merged = fallback.map((fallbackEntry) => {
+    const storedEntry = storedByPos.get(fallbackEntry.pos)
+    if (!storedEntry) return fallbackEntry
+    return {
+      ...fallbackEntry,
+      ...storedEntry,
+      animatedWords:
+        Array.isArray(storedEntry.animatedWords) && storedEntry.animatedWords.length > 0
+          ? storedEntry.animatedWords
+          : fallbackEntry.animatedWords,
+      modalBodyText: storedEntry.modalBodyText ?? fallbackEntry.modalBodyText ?? "",
+      badgeResponsible: storedEntry.badgeResponsible ?? fallbackEntry.badgeResponsible ?? "",
+      badgeAgency: storedEntry.badgeAgency ?? fallbackEntry.badgeAgency ?? "",
+      badgeProdVideo: storedEntry.badgeProdVideo ?? fallbackEntry.badgeProdVideo ?? "",
+      badgeProdAudio: storedEntry.badgeProdAudio ?? fallbackEntry.badgeProdAudio ?? "",
+      badgeVoice: storedEntry.badgeVoice ?? fallbackEntry.badgeVoice ?? "",
+      badgeOperator: storedEntry.badgeOperator ?? fallbackEntry.badgeOperator ?? "",
+    }
+  })
+
+  const extras = stored.filter((entry) => !fallbackByPos.has(entry.pos))
+  return [...merged, ...extras]
+}
 
 export const loadDraftContent = (): AdminContent => {
   const fallback = createCanonicalFallbackContent()
