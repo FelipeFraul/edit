@@ -242,9 +242,18 @@ export const createDefaultAdminContent = (): AdminContent => ({
     text:
       "Edit Group une direção criativa e técnica para transformar demanda em produção consistente, garantindo qualidade, escala e identidade sonora em cada projeto, com processos otimizados e alto padrão de entrega.",
     steps: [
-      mkStep(1, "EDIÇÃO", "Organização narrativa e precisão técnica dos elementos sonoros.", "/assets/icon/settings-2-svgrepo-com.svg"),
-      mkStep(2, "MIXAGEM", "Equilíbrio de camadas para clareza, impacto e identidade de marca.", "/assets/icon/settings-svgrepo-com.svg"),
-      mkStep(3, "FINALIZAÇÃO", "Master final com padronização para múltiplos canais e formatos.", "/assets/icon/send-1-svgrepo-com.svg"),
+      {
+        ...mkStep(1, "EDIÇÃO", "Organização narrativa e precisão técnica dos elementos sonoros.", "/assets/icon/settings-2-svgrepo-com.svg"),
+        hiddenText: "Organização narrativa e precisão técnica dos elementos sonoros.",
+      },
+      {
+        ...mkStep(2, "MIXAGEM", "Equilíbrio de camadas para clareza, impacto e identidade de marca.", "/assets/icon/settings-svgrepo-com.svg"),
+        hiddenText: "Equilíbrio de camadas para clareza, impacto e identidade de marca.",
+      },
+      {
+        ...mkStep(3, "FINALIZAÇÃO", "Master final com padronização para múltiplos canais e formatos.", "/assets/icon/send-1-svgrepo-com.svg"),
+        hiddenText: "Master final com padronização para múltiplos canais e formatos.",
+      },
     ],
   },
   section04: {

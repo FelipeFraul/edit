@@ -37,9 +37,6 @@ const byOrder = (a: SectionCard, b: SectionCard) => a.order_index - b.order_inde
 const Section02: React.FC<Section02Props> = ({ content }) => {
   const sectionRef = useRef<HTMLElement | null>(null)
   const [isVisible, setIsVisible] = useState(false)
-  const [activeInfoCard, setActiveInfoCard] = useState<string | null>(null)
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
-  const activeInfoCardDesktop = isMobileViewport ? null : activeInfoCard
 
   const cmsCards = (content?.cards ?? [])
     .filter((entry) => entry.is_active && !entry.deleted_at)
@@ -58,13 +55,6 @@ const Section02: React.FC<Section02Props> = ({ content }) => {
 
   const aboutTitle = content?.title || "SOBRE NÓS"
   const aboutText = content?.text || ABOUT_TEXT
-
-  useEffect(() => {
-    const syncViewport = () => setIsMobileViewport(window.innerWidth < 640)
-    syncViewport()
-    window.addEventListener("resize", syncViewport)
-    return () => window.removeEventListener("resize", syncViewport)
-  }, [])
 
   useEffect(() => {
     const target = sectionRef.current
@@ -175,14 +165,10 @@ const Section02: React.FC<Section02Props> = ({ content }) => {
           <div className="grid w-full grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,450px)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
             <div className="sec02-enter relative flex max-w-[450px] flex-col justify-center self-start sm:self-center" style={{ animationDelay: "180ms" }}>
               <h2 className="section-main-title font-secular mt-0 font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-white">
-                {activeInfoCardDesktop
-                  ? cards.find((card) => card.key === activeInfoCardDesktop)?.title ?? aboutTitle
-                  : aboutTitle}
+                {aboutTitle}
               </h2>
               <p className="font-barlow-thin section-body-copy mt-10 max-w-[450px] text-white/88">
-                {activeInfoCardDesktop
-                  ? cards.find((card) => card.key === activeInfoCardDesktop)?.hoverText ?? aboutText
-                  : aboutText}
+                {aboutText}
               </p>
             </div>
 
@@ -191,15 +177,6 @@ const Section02: React.FC<Section02Props> = ({ content }) => {
                 key={card.key}
                 className="sec02-enter relative flex h-auto min-h-0 min-w-0 flex-col overflow-hidden border border-white/45 p-6 sm:h-[400px] sm:min-h-0 lg:p-5"
                 style={{ animationDelay: `${320 + index * 140}ms` }}
-                onMouseEnter={() => {
-                  if (!isMobileViewport) setActiveInfoCard(card.key)
-                }}
-                onFocus={() => {
-                  if (!isMobileViewport) setActiveInfoCard(card.key)
-                }}
-                onMouseLeave={() => {
-                  if (!isMobileViewport) setActiveInfoCard(null)
-                }}
               >
                 <div className="flex items-center gap-3">
                   <img

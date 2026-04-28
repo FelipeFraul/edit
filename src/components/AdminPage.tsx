@@ -2850,8 +2850,14 @@ export default function AdminPage() {
                 onText={(value) => mutateContent((prev) => ({ ...prev, section03: { ...prev.section03, text: value } }))}
                 items={content.section03.steps}
                 onItems={(items) => mutateContent((prev) => ({ ...prev, section03: { ...prev.section03, steps: items as typeof prev.section03.steps } }))}
-                template={{ name: "Nova etapa", text: "", media: "" }}
-                fields={["name", "text", "media"]}
+                template={{ name: "Nova etapa", text: "", hiddenText: "", media: "" }}
+                fields={["name", "text", "hiddenText", "media"]}
+                fieldLabels={{
+                  name: "Título",
+                  text: "Texto abaixo do ícone",
+                  hiddenText: "Texto escondido",
+                  media: "Ícone",
+                }}
                 deleteWithConfirm={deleteWithConfirm}
                 onSave={saveNow}
                 allowCreate={false}
@@ -3549,25 +3555,14 @@ export default function AdminPage() {
               </div>
 
               <label className="text-xs uppercase tracking-[0.14em]">
-                Subir pasta de áudios
+                Subir arquivos de áudio
                 <input
                   type="file"
                   accept="audio/*"
                   multiple
-                  {...({ webkitdirectory: "true", directory: "true" } as Record<string, string>)}
                   className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                   onChange={(event) => {
                     const files = Array.from(event.target.files ?? [])
-                    if (files.length > 0) {
-                      const hasFolderPath = files.some((file) =>
-                        ((file as File & { webkitRelativePath?: string }).webkitRelativePath ?? "").includes("/")
-                      )
-                      if (!hasFolderPath) {
-                        window.alert("Selecione uma pasta (regiao/idioma/estilo). Arquivos soltos e .zip nao sao aceitos neste modo.")
-                        event.currentTarget.value = ""
-                        return
-                      }
-                    }
                     setSection07BulkDraft((prev) => ({ ...prev, files }))
                   }}
                 />
@@ -3746,6 +3741,7 @@ type SectionEditorProps<T extends BaseItem> = {
   deleteWithConfirm: (label: string, onConfirm: () => void) => void
   onSave?: () => void
   extraField?: (item: T, onPatch: (patch: Partial<T>) => void) => React.ReactNode
+  fieldLabels?: Partial<Record<keyof Omit<T, keyof BaseItem>, string>>
   allowCreate?: boolean
   showToggleDelete?: boolean
   fitContent?: boolean
@@ -3766,6 +3762,7 @@ function SectionEditor<T extends BaseItem>({
   deleteWithConfirm,
   onSave,
   extraField,
+  fieldLabels,
   allowCreate = true,
   showToggleDelete = true,
   fitContent = false,
@@ -3910,12 +3907,18 @@ function SectionEditor<T extends BaseItem>({
             <div className="mt-4 grid gap-3">
               {fields.map((field) => (
                 <label key={`modal-field-${String(field)}`} className="text-xs uppercase tracking-[0.14em]">
-                  {String(field)}
+                  {fieldLabels?.[field] ?? String(field)}
                   {(fieldOptions[String(field)]?.length ?? 0) > 0 ? (
                     <AssetAutocompleteInput
                       value={itemDraft[String(field)] ?? ""}
                       options={fieldOptions[String(field)] ?? []}
                       onChange={(value) => setItemDraft((prev) => ({ ...prev, [String(field)]: value }))}
+                    />
+                  ) : String(field).toLowerCase().includes("text") || String(field).toLowerCase().includes("description") ? (
+                    <textarea
+                      className="mt-1 min-h-24 w-full border border-black/20 px-2 py-2 text-sm"
+                      value={itemDraft[String(field)] ?? ""}
+                      onChange={(event) => setItemDraft((prev) => ({ ...prev, [String(field)]: event.target.value }))}
                     />
                   ) : (
                     <input

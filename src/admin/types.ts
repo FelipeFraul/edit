@@ -46,6 +46,7 @@ export type SectionCard = BaseItem & {
 export type SectionStep = BaseItem & {
   name: string
   text: string
+  hiddenText?: string
   media: string
 }
 

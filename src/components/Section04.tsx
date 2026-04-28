@@ -563,7 +563,6 @@ const Section04: React.FC<Section04Props> = ({ content, talents = [] }) => {
   const [voiceColumnOffset, setVoiceColumnOffset] = useState(0)
   const [rowHeightPx, setRowHeightPx] = useState(1)
   const gridTrapRef = useRef<HTMLDivElement | null>(null)
-  const wheelCooldownUntilRef = useRef(0)
   const rightScrollProxyRef = useRef<HTMLDivElement | null>(null)
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null)
   const normalizeKey = (label: string) =>
@@ -585,6 +584,36 @@ const Section04: React.FC<Section04Props> = ({ content, talents = [] }) => {
     if (!raw) return ""
     const mapped = raw.startsWith("/uploads/audio/") ? raw.replace("/uploads/audio/", "/assets/audios/") : raw
     return encodeURI(mapped).replace(/#/g, "%23")
+  }
+
+  const normalizeIdiomaAudioSource = (value?: string) => {
+    const raw = (value ?? "").trim()
+    if (!raw) return ""
+    const mappedRoot = raw.replace("/assets/audios/regiao/", "/assets/audios/idioma/")
+    const prefix = "/assets/audios/idioma/"
+    if (!mappedRoot.startsWith(prefix)) return mappedRoot
+
+    const rest = mappedRoot.slice(prefix.length)
+    const parts = rest.split("/").filter(Boolean)
+    const languageFolder = parts[0] ?? ""
+    const fileName = parts[parts.length - 1] ?? ""
+    if (!languageFolder || !fileName) return mappedRoot
+
+    const languageKey = normalizeLookup(languageFolder)
+    const folderByLanguage: Record<string, string> = {
+      INGLES: "INGLÊS",
+      ESPANHOL: "ESPANHOL",
+      FRANCES: "FRANCÊS",
+      ITALIANO: "ITALIANO",
+      MANDARIM: "MANDARIM🇨🇳",
+      ARABE: "ARABE",
+      POLONIA: "POLÔNIA",
+      POLONES: "POLÔNIA",
+      PORTUGUESPORTUGAL: "PORTUGUÊS PORT",
+      PORTUGUESPT: "PORTUGUÊS PORT",
+    }
+    const folder = folderByLanguage[languageKey] ?? languageFolder
+    return `${prefix}${folder}/${fileName}`
   }
 
   useEffect(() => {
@@ -985,79 +1014,43 @@ const voiceFilters: VoiceFilter[] = [
         { id: "estilo-pretas-shirley", name: "Shirley", audioFile: "/assets/audios/estilo/VOZES PRETAS/SHIRLEY RJ BR.mp3" },
       ],
     }
-    const idiomaAudioEntriesByTerm: Record<string, Array<{ id: string; name: string; gender: string; audioFile: string }>> = {
-      INGLES: [
-        {
-          id: "idioma-ingles-jeffry",
-          name: "Jeffry",
-          gender: "MASCULINA",
-          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC - Jeffry EN.wav",
-        },
-        {
-          id: "idioma-ingles-ralph",
-          name: "Ralph",
-          gender: "MASCULINA",
-          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC - RALPH - EN.mp3",
-        },
-        {
-          id: "idioma-ingles-roni",
-          name: "Roni",
-          gender: "MASCULINA",
-          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC - Roni Dalber EN.mp3",
-        },
-        {
-          id: "idioma-ingles-billy",
-          name: "Billy",
-          gender: "MASCULINA",
-          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC _ Billy -EN.mp3",
-        },
-        {
-          id: "idioma-ingles-amin",
-          name: "Amin",
-          gender: "MASCULINA",
-          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC_ Amin EN.mp3",
-        },
-      ],
-      ESPANHOL: [],
-      ITALIANO: [
-        { id: "idioma-italiano-leonel", name: "Leonel", gender: "MASCULINA", audioFile: "/assets/audios/idioma/ITALIANO 🇮🇹/Leonel - IT.mp3" },
-        { id: "idioma-italiano-mario", name: "Mario", gender: "MASCULINA", audioFile: "/assets/audios/idioma/ITALIANO 🇮🇹/Mario - IT.mp3" },
-        { id: "idioma-italiano-pietro", name: "Pietro", gender: "MASCULINA", audioFile: "/assets/audios/idioma/ITALIANO 🇮🇹/Pietro - IT.mp3" },
-      ],
-      MANDARIM: [
-        { id: "idioma-mandarim-cunsue", name: "Cun Sue", gender: "FEMININA", audioFile: "/assets/audios/idioma/MANDARIM🇨🇳/Cun Sue - Mandarin.wav" },
-        { id: "idioma-mandarim-vijhin", name: "Vi Jhin", gender: "FEMININA", audioFile: "/assets/audios/idioma/MANDARIM🇨🇳/Vi Jhin - Mandarin.wav" },
-        { id: "idioma-mandarim-koshiro", name: "Koshiro", gender: "MASCULINA", audioFile: "/assets/audios/idioma/MANDARIM🇨🇳/KOSHIRO.mp3" },
-        { id: "idioma-mandarim-yamato", name: "Yamato", gender: "MASCULINA", audioFile: "/assets/audios/idioma/MANDARIM🇨🇳/YAMATO.mp3" },
-      ],
-      FRANCES: [
-        { id: "idioma-frances-alan", name: "Alan", gender: "MASCULINA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Alan - Francês.mp3" },
-        { id: "idioma-frances-antony", name: "Antony", gender: "MASCULINA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Antony - Francês.mp3" },
-        { id: "idioma-frances-esteban", name: "Esteban", gender: "MASCULINA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Esteban - Francês.mp3" },
-        { id: "idioma-frances-john", name: "John", gender: "MASCULINA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/John - Francês.mp3" },
-        { id: "idioma-frances-felicia", name: "Felicia", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Felicia - French.mp3" },
-        { id: "idioma-frances-lissa", name: "Lissa", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Lissa - French.mp3" },
-        { id: "idioma-frances-louise", name: "Louise", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Louise - French.mp3" },
-        { id: "idioma-frances-manuelle", name: "Manuelle", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Manuelle - French.mp3" },
-        { id: "idioma-frances-virginie", name: "Virginie", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Virginie - French.mp3" },
-      ],
-    }
-
     const result = talents
       .filter((talent: VoiceTalentAdmin) => talent.is_active && !talent.deleted_at)
       .map((talent: VoiceTalentAdmin) => {
         const audioSource =
-          (selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS") && talent.audioFile?.startsWith("/assets/audios/regiao/")
-            ? talent.audioFile.replace("/assets/audios/regiao/", "/assets/audios/idioma/")
+          selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS"
+            ? normalizeIdiomaAudioSource(talent.audioFile)
             : talent.audioFile
         const audioFile = normalizeAudioSrc(audioSource)
         const assignments = talent.assignments ?? {}
         const scopedPaths = aliasKeys.flatMap((key) => (assignments as Record<string, string[][]>)[key] ?? [])
         const allPaths = Object.values(assignments).flat()
         const targetPaths = scopedPaths.length > 0 ? scopedPaths : allPaths
-        const hasAssignmentMatch = selectedTerms.length === 0 || targetPaths.some((path) => matchesSelection(path))
 
-        const normalizedAudioContext = normalizeLookup(`${audioFile} ${talent.name ?? ""}`)
+        const normalizedAudioContext = normalizeLookup(`${audioFile} ${talent.audioName ?? ""} ${talent.name ?? ""}`)
+        const selectedGenderTerm = selectedSecondItem ? normalizeLookup(selectedSecondItem) : ""
+        const inferredGenderFromAudio =
+          normalizedAudioContext.includes("FEM") || normalizedAudioContext.includes("FEMININA") || normalizedAudioContext.includes("FEMALE")
+            ? "FEMININA"
+            : normalizedAudioContext.includes("MAS") ||
+                normalizedAudioContext.includes("MASC") ||
+                normalizedAudioContext.includes("MASCULINA") ||
+                normalizedAudioContext.includes("MASCULINO") ||
+                normalizedAudioContext.includes("MALE")
+              ? "MASCULINA"
+              : ""
+        const selectedIdiomaTerm = selectedThirdItem ? normalizeLookup(selectedThirdItem) : ""
+        const isIdiomaFilter = selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS"
+        const hasAssignmentMatch =
+          isIdiomaFilter && selectedGenderTerm && selectedIdiomaTerm
+            ? targetPaths.some((path) => {
+                const normalizedPath = path.map((part) => normalizeLookup(part))
+                const matchesIdioma = normalizedPath.includes(selectedIdiomaTerm)
+                if (!matchesIdioma) return false
+                if (inferredGenderFromAudio) return selectedGenderTerm === inferredGenderFromAudio
+                return normalizedPath.includes(selectedGenderTerm)
+              })
+            : selectedTerms.length === 0 || targetPaths.some((path) => matchesSelection(path))
         const hasInferredEstiloMatch =
           selectedFilterKey === "ESTILO" &&
           selectedTerms.length > 0 &&
@@ -1067,34 +1060,26 @@ const voiceFilters: VoiceFilter[] = [
           })
 
         const hasMatch = hasAssignmentMatch || hasInferredEstiloMatch
-        const firstName = (talent.name ?? "").split(" ").filter(Boolean)[0] ?? ""
-        return hasMatch && firstName && audioFile ? { id: talent.id, name: firstName.trim(), audioFile } : null
+        const displayName = (talent.name || talent.audioName || "").trim()
+        return hasMatch && displayName && audioFile ? { id: talent.id, name: displayName, audioFile } : null
       })
       .filter((entry): entry is { id: string; name: string; audioFile: string } => Boolean(entry))
-
-    const seenNames = new Set<string>()
-    const uniqueEntries = result.filter((entry) => {
+    const nameTotals = result.reduce((acc, entry) => {
       const key = normalizeLookup(entry.name)
-      if (seenNames.has(key)) return false
-      seenNames.add(key)
-      return true
+      acc.set(key, (acc.get(key) ?? 0) + 1)
+      return acc
+    }, new Map<string, number>())
+    const nameIndexes = new Map<string, number>()
+    const entries = result.map((entry) => {
+      const key = normalizeLookup(entry.name)
+      const total = nameTotals.get(key) ?? 0
+      if (total <= 1) return entry
+      const index = (nameIndexes.get(key) ?? 0) + 1
+      nameIndexes.set(key, index)
+      return { ...entry, name: `${entry.name} ${index}` }
     })
 
-    if (selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS") {
-      const selectedIdiomaTerm = selectedThirdItem ? normalizeLookup(selectedThirdItem) : ""
-      const selectedGenderTerm = selectedSecondItem ? normalizeLookup(selectedSecondItem) : ""
-      if (Object.prototype.hasOwnProperty.call(idiomaAudioEntriesByTerm, selectedIdiomaTerm)) {
-        return (idiomaAudioEntriesByTerm[selectedIdiomaTerm] ?? [])
-          .filter((entry) => !selectedGenderTerm || entry.gender === selectedGenderTerm)
-          .map(({ gender: _gender, ...entry }) => ({
-            ...entry,
-            audioFile: normalizeAudioSrc(entry.audioFile),
-          }))
-      }
-      return uniqueEntries
-    }
-
-    if (selectedFilterKey !== "ESTILO") return uniqueEntries
+    if (selectedFilterKey !== "ESTILO") return entries
 
     const selectedEstiloTerm = selectedSecondItem ? normalizeLookup(selectedSecondItem) : ""
     const curated = (estiloAudioEntriesByTerm[selectedEstiloTerm] ?? []).map((entry) => ({
@@ -1103,20 +1088,20 @@ const voiceFilters: VoiceFilter[] = [
     }))
 
     if (selectedEstiloTerm === "INFANTIL") {
-      const withoutBia = uniqueEntries.filter((entry) => normalizeLookup(entry.name) !== "BIA")
+      const withoutBia = entries.filter((entry) => normalizeLookup(entry.name) !== "BIA")
       return withoutBia.length > 0 ? withoutBia : curated
     }
 
     if (selectedEstiloTerm === "ADOLESCENTE") {
-      const onlyBia = uniqueEntries.filter((entry) => normalizeLookup(entry.name) === "BIA")
+      const onlyBia = entries.filter((entry) => normalizeLookup(entry.name) === "BIA")
       return onlyBia.length > 0 ? onlyBia : curated
     }
 
     if (selectedEstiloTerm === "MADURAS" || selectedEstiloTerm === "VOZESPRETAS") {
-      return curated.length > 0 ? curated : uniqueEntries
+      return curated.length > 0 ? curated : entries
     }
 
-    return uniqueEntries
+    return entries
   }, [talents, selectedFilterKey, selectedSecondItem, selectedThirdItem, selectedTerms])
 
   const voiceNames: string[] = useMemo(() => {
@@ -1258,31 +1243,6 @@ const voiceFilters: VoiceFilter[] = [
   const filterBtnIdle = "border-white/35 bg-transparent hover:border-white/35 hover:bg-transparent sm:hover:border-[#6F89FF] sm:hover:bg-[#1A245C]"
   const filterBtnSelected = "border-[#A987FF] bg-[#5A0A91]"
 
-  const stepActiveColumn = (dir: 1 | -1) => {
-    const proxy = rightScrollProxyRef.current
-    if (!activeScrollColumn || activeMaxOffset <= 0) return
-
-    const update = (prev: number) => {
-      const next = Math.max(0, Math.min(activeMaxOffset, prev + dir))
-      if (proxy) proxy.scrollTop = next * rowHeightPx
-      return next
-    }
-
-    if (activeScrollColumn === "middle") {
-      setMiddleColumnOffset(update)
-      return
-    }
-    if (activeScrollColumn === "right") {
-      setRightColumnOffset(update)
-      return
-    }
-    if (activeScrollColumn === "voice") {
-      setVoiceColumnOffset(update)
-      return
-    }
-    setDetailColumnOffset(update)
-  }
-
   useEffect(() => {
     setMiddleColumnOffset(0)
     setRightColumnOffset(0)
@@ -1350,19 +1310,16 @@ const voiceFilters: VoiceFilter[] = [
     if (!el) return
 
     const onWheel = (ev: WheelEvent) => {
+      if (activeMaxOffset <= 0) return
+      const proxy = rightScrollProxyRef.current
+      if (!proxy) return
       ev.preventDefault()
       ev.stopPropagation()
       if (typeof (ev as any).stopImmediatePropagation === "function") {
         ;(ev as any).stopImmediatePropagation()
       }
-      if (activeMaxOffset <= 0) return
-
-      const now = performance.now()
-      if (now < wheelCooldownUntilRef.current) return
-      wheelCooldownUntilRef.current = now + 140
-      if (Math.abs(ev.deltaY) < 6) return
-
-      stepActiveColumn(ev.deltaY > 0 ? 1 : -1)
+      const maxScrollTop = activeMaxOffset * rowHeightPx
+      proxy.scrollTop = Math.max(0, Math.min(maxScrollTop, proxy.scrollTop + ev.deltaY))
     }
 
     el.addEventListener("wheel", onWheel, { passive: false })
@@ -1915,16 +1872,21 @@ const voiceFilters: VoiceFilter[] = [
                       </React.Fragment>
                     )
                   })}
-                </div>
 
+                </div>
                 <div
                   ref={rightScrollProxyRef}
-                  className={`absolute -right-2 top-0 z-20 h-full w-3 overflow-y-scroll ${activeMaxOffset > 0 ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-                  style={{ scrollbarWidth: "thin", overscrollBehavior: "contain" }}
+                  className={`absolute -right-5 top-0 z-20 h-full w-5 overflow-y-scroll transition-opacity ${
+                    activeMaxOffset > 0 ? "opacity-80" : "opacity-0 pointer-events-none"
+                  }`}
+                  style={{ scrollbarWidth: "thin", overscrollBehavior: "contain", scrollBehavior: "auto" }}
                   onWheelCapture={(e) => e.stopPropagation()}
                   onScroll={(e) => {
                     const target = e.currentTarget
-                    const nextOffset = Math.min(activeMaxOffset, Math.max(0, Math.round(target.scrollTop / rowHeightPx)))
+                    const nextOffset = Math.min(
+                      activeMaxOffset,
+                      Math.max(0, Math.round(target.scrollTop / rowHeightPx))
+                    )
                     if (activeScrollColumn === "middle") {
                       setMiddleColumnOffset(nextOffset)
                       return
@@ -1943,7 +1905,14 @@ const voiceFilters: VoiceFilter[] = [
                   }}
                   aria-hidden="true"
                 >
-                  <div style={{ height: `${Math.max(FILTER_VISIBLE_ROWS + 1, activeMaxOffset + FILTER_VISIBLE_ROWS) * rowHeightPx}px` }} />
+                  <div
+                    style={{
+                      height: `${
+                        Math.max(FILTER_VISIBLE_ROWS + 1, activeMaxOffset + FILTER_VISIBLE_ROWS) *
+                        rowHeightPx
+                      }px`,
+                    }}
+                  />
                 </div>
               </div>
             </div>

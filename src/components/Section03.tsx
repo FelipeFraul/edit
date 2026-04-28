@@ -9,6 +9,7 @@ const SECTION03_CARDS = [
     iconSrc: "/assets/icon/settings-2-svgrepo-com.svg",
     iconClass: "h-[58%]",
     text: "",
+    hiddenText: "",
   },
   {
     id: 2,
@@ -17,6 +18,7 @@ const SECTION03_CARDS = [
     iconSrc: "/assets/icon/settings-svgrepo-com.svg",
     iconClass: "h-[66%]",
     text: "",
+    hiddenText: "",
   },
   {
     id: 3,
@@ -25,6 +27,7 @@ const SECTION03_CARDS = [
     iconSrc: "/assets/icon/send-1-svgrepo-com.svg",
     iconClass: "h-[58%] w-[58%]",
     text: "",
+    hiddenText: "",
   },
 ]
 
@@ -133,6 +136,7 @@ const Section03: React.FC<Section03Props> = ({ content }) => {
       iconSrc: step.media || SECTION03_CARDS[index % SECTION03_CARDS.length].iconSrc,
       iconClass: SECTION03_CARDS[index % SECTION03_CARDS.length].iconClass,
       text: step.text || "",
+      hiddenText: step.hiddenText || step.text || "",
     }))
   }, [content?.steps])
 
@@ -261,7 +265,7 @@ const Section03: React.FC<Section03Props> = ({ content }) => {
                       <div className={getDesktopFillTextClass(card.id - 1)}>
                         <div className="space-y-2">
                           <p className="px-4 font-barlow-thin text-[18px] leading-[1.35] text-black/75">
-                            {card.text || "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Tempor incididunt ut labore et dolore magna aliqua."}
+                            {card.hiddenText || "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Tempor incididunt ut labore et dolore magna aliqua."}
                           </p>
                         </div>
                       </div>
