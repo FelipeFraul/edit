@@ -562,8 +562,11 @@ const Section04: React.FC<Section04Props> = ({ content, talents = [] }) => {
   const [detailColumnOffset, setDetailColumnOffset] = useState(0)
   const [voiceColumnOffset, setVoiceColumnOffset] = useState(0)
   const [rowHeightPx, setRowHeightPx] = useState(1)
+  const [hoveredScrollColumn, setHoveredScrollColumn] = useState<"middle" | "right" | "detail" | "voice" | null>(null)
   const gridTrapRef = useRef<HTMLDivElement | null>(null)
   const rightScrollProxyRef = useRef<HTMLDivElement | null>(null)
+  const wheelAccumulatedDeltaRef = useRef(0)
+  const offsetsRef = useRef({ middle: 0, right: 0, detail: 0, voice: 0 })
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null)
   const normalizeKey = (label: string) =>
     label
@@ -1215,7 +1218,22 @@ const voiceFilters: VoiceFilter[] = [
                 ? `${compactCol1 ? squareCol : fluidCol} ${fluidCol}`
                 : `${fluidCol} ${fluidCol}`
 
-  const activeScrollColumn =
+  const getScrollColumnMaxOffset = (column: "middle" | "right" | "detail" | "voice" | null) => {
+    if (column === "middle") return maxMiddleOffset
+    if (column === "right") return maxRightOffset
+    if (column === "detail") return maxDetailOffset
+    if (column === "voice") return maxVoiceOffset
+    return 0
+  }
+  const getScrollColumnOffset = (column: "middle" | "right" | "detail" | "voice" | null) => {
+    if (column === "middle") return offsetsRef.current.middle
+    if (column === "right") return offsetsRef.current.right
+    if (column === "detail") return offsetsRef.current.detail
+    if (column === "voice") return offsetsRef.current.voice
+    return 0
+  }
+
+  const fallbackScrollColumn =
     showVoiceColumn && maxVoiceOffset > 0
       ? "voice"
       : showDetailColumn && maxDetailOffset > 0
@@ -1225,6 +1243,11 @@ const voiceFilters: VoiceFilter[] = [
           : maxMiddleOffset > 0
             ? "middle"
             : null
+
+  const activeScrollColumn =
+    hoveredScrollColumn && getScrollColumnMaxOffset(hoveredScrollColumn) > 0
+      ? hoveredScrollColumn
+      : fallbackScrollColumn
 
   const activeMaxOffset =
     activeScrollColumn === "voice"
@@ -1242,6 +1265,48 @@ const voiceFilters: VoiceFilter[] = [
   const filterBtnBase = "flex h-full min-h-0 shrink-0 items-center border px-3 py-2 text-left"
   const filterBtnIdle = "border-white/35 bg-transparent hover:border-white/35 hover:bg-transparent sm:hover:border-[#6F89FF] sm:hover:bg-[#1A245C]"
   const filterBtnSelected = "border-[#A987FF] bg-[#5A0A91]"
+  const getScrollColumnFromClientX = (clientX: number): "middle" | "right" | "detail" | "voice" | null => {
+    const el = gridTrapRef.current
+    const gridEl = el?.firstElementChild as HTMLElement | null
+    if (!gridEl) return null
+
+    const rect = gridEl.getBoundingClientRect()
+    const columns = getComputedStyle(gridEl)
+      .gridTemplateColumns.split(" ")
+      .map((value) => Number.parseFloat(value))
+      .filter((value) => Number.isFinite(value) && value > 0)
+    if (!columns.length) return null
+
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left))
+    let runningWidth = 0
+    let columnIndex = 1
+    for (let index = 0; index < columns.length; index += 1) {
+      runningWidth += columns[index]
+      if (x <= runningWidth) {
+        columnIndex = index + 1
+        break
+      }
+    }
+
+    if (columnIndex === 1) return "middle"
+    if (isFlatVoiceMode && columnIndex === 2) return "voice"
+    if (columnIndex === 2) return showRightColumnFrame ? "right" : null
+    if (columnIndex === 3) {
+      if (showDetailColumnFrame) return "detail"
+      return showVoiceColumnFrame ? "voice" : null
+    }
+    if (columnIndex === 4) return showVoiceColumnFrame ? "voice" : null
+    return null
+  }
+
+  useEffect(() => {
+    offsetsRef.current = {
+      middle: middleColumnOffset,
+      right: rightColumnOffset,
+      detail: detailColumnOffset,
+      voice: voiceColumnOffset,
+    }
+  }, [middleColumnOffset, rightColumnOffset, detailColumnOffset, voiceColumnOffset])
 
   useEffect(() => {
     setMiddleColumnOffset(0)
@@ -1310,23 +1375,69 @@ const voiceFilters: VoiceFilter[] = [
     if (!el) return
 
     const onWheel = (ev: WheelEvent) => {
-      if (activeMaxOffset <= 0) return
-      const proxy = rightScrollProxyRef.current
-      if (!proxy) return
+      const column = getScrollColumnFromClientX(ev.clientX)
+      const maxOffset = getScrollColumnMaxOffset(column)
+      if (!column || maxOffset <= 0) return
       ev.preventDefault()
       ev.stopPropagation()
       if (typeof (ev as any).stopImmediatePropagation === "function") {
         ;(ev as any).stopImmediatePropagation()
       }
-      const maxScrollTop = activeMaxOffset * rowHeightPx
-      proxy.scrollTop = Math.max(0, Math.min(maxScrollTop, proxy.scrollTop + ev.deltaY))
+      setHoveredScrollColumn(column)
+      wheelAccumulatedDeltaRef.current += ev.deltaY
+      const threshold = Math.max(24, rowHeightPx * 0.55)
+      if (Math.abs(wheelAccumulatedDeltaRef.current) < threshold) return
+
+      const step = wheelAccumulatedDeltaRef.current > 0 ? 1 : -1
+      wheelAccumulatedDeltaRef.current = 0
+      const currentOffset = getScrollColumnOffset(column)
+      const isAtStart = step < 0 && currentOffset <= 0
+      const isAtEnd = step > 0 && currentOffset >= maxOffset
+      if (isAtStart || isAtEnd) return
+
+      const updateOffset = (prev: number) => Math.max(0, Math.min(maxOffset, prev + step))
+      if (column === "middle") {
+        offsetsRef.current.middle = Math.max(0, Math.min(maxOffset, currentOffset + step))
+        setMiddleColumnOffset(updateOffset)
+        return
+      }
+      if (column === "right") {
+        offsetsRef.current.right = Math.max(0, Math.min(maxOffset, currentOffset + step))
+        setRightColumnOffset(updateOffset)
+        return
+      }
+      if (column === "detail") {
+        offsetsRef.current.detail = Math.max(0, Math.min(maxOffset, currentOffset + step))
+        setDetailColumnOffset(updateOffset)
+        return
+      }
+      offsetsRef.current.voice = Math.max(0, Math.min(maxOffset, currentOffset + step))
+      setVoiceColumnOffset(updateOffset)
     }
 
+    const onPointerMove = (ev: PointerEvent) => {
+      const column = getScrollColumnFromClientX(ev.clientX)
+      setHoveredScrollColumn((prev) => (prev === column ? prev : column))
+    }
+    const onPointerLeave = () => {
+      wheelAccumulatedDeltaRef.current = 0
+      setHoveredScrollColumn(null)
+    }
+
+    el.addEventListener("pointermove", onPointerMove)
+    el.addEventListener("pointerleave", onPointerLeave)
     el.addEventListener("wheel", onWheel, { passive: false })
     return () => {
+      el.removeEventListener("pointermove", onPointerMove)
+      el.removeEventListener("pointerleave", onPointerLeave)
       el.removeEventListener("wheel", onWheel as EventListener)
     }
-  }, [activeMaxOffset, activeScrollColumn, rowHeightPx])
+  }, [
+    getScrollColumnFromClientX,
+    getScrollColumnOffset,
+    getScrollColumnMaxOffset,
+    rowHeightPx,
+  ])
 
   useEffect(() => {
     const el = gridTrapRef.current
@@ -1357,22 +1468,26 @@ const voiceFilters: VoiceFilter[] = [
     if (!proxy) return
 
     if (activeScrollColumn === "middle") {
-      proxy.scrollTop = middleColumnOffset * rowHeightPx
+      const next = middleColumnOffset * rowHeightPx
+      if (Math.abs(proxy.scrollTop - next) > 0.5) proxy.scrollTop = next
       return
     }
     if (activeScrollColumn === "right") {
-      proxy.scrollTop = rightColumnOffset * rowHeightPx
+      const next = rightColumnOffset * rowHeightPx
+      if (Math.abs(proxy.scrollTop - next) > 0.5) proxy.scrollTop = next
       return
     }
     if (activeScrollColumn === "detail") {
-      proxy.scrollTop = detailColumnOffset * rowHeightPx
+      const next = detailColumnOffset * rowHeightPx
+      if (Math.abs(proxy.scrollTop - next) > 0.5) proxy.scrollTop = next
       return
     }
     if (activeScrollColumn === "voice") {
-      proxy.scrollTop = voiceColumnOffset * rowHeightPx
+      const next = voiceColumnOffset * rowHeightPx
+      if (Math.abs(proxy.scrollTop - next) > 0.5) proxy.scrollTop = next
       return
     }
-    proxy.scrollTop = 0
+    if (proxy.scrollTop !== 0) proxy.scrollTop = 0
   }, [activeScrollColumn, middleColumnOffset, rightColumnOffset, detailColumnOffset, voiceColumnOffset, rowHeightPx])
 
   return (
@@ -1881,28 +1996,6 @@ const voiceFilters: VoiceFilter[] = [
                   }`}
                   style={{ scrollbarWidth: "thin", overscrollBehavior: "contain", scrollBehavior: "auto" }}
                   onWheelCapture={(e) => e.stopPropagation()}
-                  onScroll={(e) => {
-                    const target = e.currentTarget
-                    const nextOffset = Math.min(
-                      activeMaxOffset,
-                      Math.max(0, Math.round(target.scrollTop / rowHeightPx))
-                    )
-                    if (activeScrollColumn === "middle") {
-                      setMiddleColumnOffset(nextOffset)
-                      return
-                    }
-                    if (activeScrollColumn === "right") {
-                      setRightColumnOffset(nextOffset)
-                      return
-                    }
-                    if (activeScrollColumn === "detail") {
-                      setDetailColumnOffset(nextOffset)
-                      return
-                    }
-                    if (activeScrollColumn === "voice") {
-                      setVoiceColumnOffset(nextOffset)
-                    }
-                  }}
                   aria-hidden="true"
                 >
                   <div
