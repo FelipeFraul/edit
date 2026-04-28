@@ -15,7 +15,15 @@ import {
   type HeroVariant,
   type MediaItem,
 } from "./heroVariants"
-import { getLatestPublished, loadDraftContent, loadDraftContentRemote, loadVersions, loadVersionsRemote } from "./admin/storage"
+import {
+  getLatestPublished,
+  loadDraftContent,
+  loadDraftContentRemote,
+  loadVersions,
+  loadVersionsRemote,
+  saveDraftContent,
+  saveVersions,
+} from "./admin/storage"
 import type { AdminContent } from "./admin/types"
 
 const SHARED_BG_VIDEO = "https://www.youtube.com/embed/ehEqJZ_7fpc?autoplay=1&mute=1&controls=0&loop=1&playlist=ehEqJZ_7fpc&start=80&playsinline=1&rel=0&modestbranding=1"
@@ -34,6 +42,7 @@ const resolveInitialContent = (): AdminContent => {
 
 const Home: React.FC = () => {
   const [cmsContent, setCmsContent] = useState<AdminContent>(() => resolveInitialContent())
+  const [cmsHydrated, setCmsHydrated] = useState(false)
   const [pos, setPos] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0)
   const [mediaOpen, setMediaOpen] = useState(false)
   const [mediaItem, setMediaItem] = useState<MediaItem | null>(null)
@@ -56,9 +65,13 @@ const Home: React.FC = () => {
       const remoteDraft = await loadDraftContentRemote()
       const localDraft = loadDraftContent()
       const nextContent = remoteDraft ?? localDraft ?? latest?.data_json
+      if (remoteDraft) saveDraftContent(remoteDraft)
+      if (remoteVersions) saveVersions(remoteVersions)
       setCmsContent(nextContent)
     } catch (error) {
       console.error("Failed to hydrate CMS content", error)
+    } finally {
+      setCmsHydrated(true)
     }
   }, [])
 
@@ -350,6 +363,9 @@ const Home: React.FC = () => {
 
   return (
     <>
+      {!cmsHydrated ? (
+        <div className="fixed inset-0 z-[3000] bg-[#0b0b0b]" aria-hidden="true" />
+      ) : null}
       <div className="pointer-events-none fixed inset-0 z-0 hidden overflow-hidden sm:block" aria-hidden="true">
         <iframe
           className="absolute left-1/2 top-1/2 h-[1080px] w-[1920px] -translate-x-1/2 -translate-y-1/2 border-0"
