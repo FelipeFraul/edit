@@ -400,6 +400,7 @@ export const saveVersionRemote = async (version: ContentVersion): Promise<void> 
     })
   } catch (error) {
     console.error("Failed to save admin version to Supabase", error)
+    throw error
   }
 }
 

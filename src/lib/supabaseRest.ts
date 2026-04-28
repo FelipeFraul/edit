@@ -34,6 +34,7 @@ export const restRequest = async <T>(
     method,
     headers: buildHeaders(options.jwt),
     body: options.body ? JSON.stringify(options.body) : undefined,
+    cache: "no-store",
   })
   if (!response.ok) {
     const detail = await response.text()
@@ -42,4 +43,3 @@ export const restRequest = async <T>(
   if (response.status === 204) return [] as T
   return (await response.json()) as T
 }
-

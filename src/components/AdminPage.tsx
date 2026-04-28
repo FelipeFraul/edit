@@ -1336,12 +1336,15 @@ export default function AdminPage() {
   const [heroCreateType, setHeroCreateType] = useState<"central" | "slide">("slide")
   const [heroCreatePos, setHeroCreatePos] = useState<-3 | -2 | -1 | 1 | 2 | 3>(-3)
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [publishedToastOpen, setPublishedToastOpen] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
   const [heroCreateDraft, setHeroCreateDraft] = useState({
     who: "",
     title: "",
     tagline: "",
     videoSrc: "",
     bgImage: "",
+    mobileBgImage: "",
   })
   const [sectionMetaModal, setSectionMetaModal] = useState<null | "section02" | "section04" | "section05" | "section06" | "section07">(null)
   const [sectionMetaDraft, setSectionMetaDraft] = useState({ title: "", text: "" })
@@ -1435,6 +1438,12 @@ export default function AdminPage() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!publishedToastOpen) return
+    const timeout = window.setTimeout(() => setPublishedToastOpen(false), 4200)
+    return () => window.clearTimeout(timeout)
+  }, [publishedToastOpen])
 
   useEffect(() => {
     const activeCards = visibleItems(content.section02.cards)
@@ -1540,27 +1549,55 @@ export default function AdminPage() {
     setStatus("draft")
     setLastSavedAt(new Date().toLocaleTimeString())
   }
+  const saveHeroModal = () => {
+    saveNow()
+    setEditingHeroPos(null)
+  }
   const publish = async () => {
-    const remoteVersions = await loadVersionsRemote()
-    const sourceVersions = [...versions, ...(remoteVersions ?? [])]
-    const nextVersion =
-      (sourceVersions.length ? Math.max(...sourceVersions.map((entry) => entry.version_number)) : 0) + 1
-    const next: ContentVersion = {
-      id: createId(),
-      version_number: nextVersion,
-      data_json: content,
-      created_at: now(),
-      created_by: session?.email ?? ADMIN_EMAIL,
-      is_published: true,
+    if (isPublishing) return
+    setIsPublishing(true)
+    try {
+      const contentToPublish = content
+      saveDraftContent(contentToPublish)
+      await saveDraftContentRemote(contentToPublish)
+
+      let publishedVersions: ContentVersion[] | null = null
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const remoteVersions = await loadVersionsRemote()
+        const sourceVersions = [...versions, ...(remoteVersions ?? [])]
+        const nextVersion =
+          (sourceVersions.length ? Math.max(...sourceVersions.map((entry) => entry.version_number)) : 0) + 1
+        const next: ContentVersion = {
+          id: createId(),
+          version_number: nextVersion,
+          data_json: contentToPublish,
+          created_at: now(),
+          created_by: session?.email ?? ADMIN_EMAIL,
+          is_published: true,
+        }
+        try {
+          await saveVersionRemote(next)
+          publishedVersions = await loadVersionsRemote()
+          if (!publishedVersions?.some((entry) => entry.id === next.id)) {
+            publishedVersions = [...(remoteVersions ?? versions), next]
+          }
+          break
+        } catch (error) {
+          if (attempt === 2) throw error
+        }
+      }
+
+      if (publishedVersions) {
+        setVersions(publishedVersions)
+        saveVersions(publishedVersions)
+        setStatus("published")
+        setPublishedToastOpen(true)
+      }
+    } catch (error) {
+      console.error("Failed to publish admin content", error)
+    } finally {
+      setIsPublishing(false)
     }
-    const baseVersions = remoteVersions ?? versions
-    const nextVersions = [...baseVersions, next]
-    setVersions(nextVersions)
-    saveVersions(nextVersions)
-    await saveVersionRemote(next)
-    saveDraftContent(content)
-    void saveDraftContentRemote(content)
-    setStatus("published")
   }
   const revertToVersion = (version: ContentVersion) => {
     setContent(version.data_json)
@@ -2245,6 +2282,7 @@ export default function AdminPage() {
         modalTitle: heroCreateDraft.title,
         videoSrc: heroCreateDraft.videoSrc || fallbackVariant?.videoSrc || "",
         bgImage: heroCreateDraft.bgImage || fallbackVariant?.bgImage || "",
+        mobileBgImage: heroCreateDraft.mobileBgImage || fallbackVariant?.mobileBgImage || "",
       }
       return {
         ...prev,
@@ -2254,7 +2292,7 @@ export default function AdminPage() {
         },
       }
     })
-    setHeroCreateDraft({ who: "", title: "", tagline: "", videoSrc: "", bgImage: "" })
+    setHeroCreateDraft({ who: "", title: "", tagline: "", videoSrc: "", bgImage: "", mobileBgImage: "" })
     setHeroCreateType("slide")
     setHeroCreatePos(-3)
     setHeroCreateOpen(false)
@@ -2287,13 +2325,32 @@ export default function AdminPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={saveDraft}>Salvar Rascunho</Button>
-            <Button className="bg-black text-white" onClick={publish}>Publicar</Button>
+            <Button className="bg-black text-white" onClick={publish} disabled={isPublishing}>
+              {isPublishing ? "Publicando" : "Publicar"}
+            </Button>
             <Button onClick={revertPublished}>Reverter</Button>
             <Button onClick={() => setShowHistory((value) => !value)}>Histórico</Button>
             <Button className="border-red-400 text-red-700" onClick={() => { clearAdminSession(); setSession(null) }}>Logout</Button>
           </div>
         </div>
       </header>
+
+      {publishedToastOpen ? (
+        <div className="fixed right-4 top-20 z-[70] flex max-w-sm items-center gap-4 border border-green-600 bg-white px-4 py-3 shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
+          <div>
+            <div className="text-sm font-semibold uppercase tracking-[0.16em] text-green-700">Publicado</div>
+            <div className="mt-1 text-xs text-black/60">As alterações foram publicadas.</div>
+          </div>
+          <button
+            type="button"
+            aria-label="Fechar aviso de publicado"
+            onClick={() => setPublishedToastOpen(false)}
+            className="ml-auto inline-flex h-7 w-7 items-center justify-center border border-black/20 text-xs text-black transition-colors duration-200 hover:bg-black hover:text-white"
+          >
+            X
+          </button>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-[240px_1fr]">
         <aside className="border-r border-black/10 bg-white p-3 md:min-h-[calc(100vh-68px)]">
@@ -2372,7 +2429,7 @@ export default function AdminPage() {
                         }`}
                       >
                         <div className="text-[10px] uppercase tracking-[0.16em] opacity-70">posição {slot.pos}</div>
-                        <div className="mt-2 text-sm font-semibold leading-tight">{label}</div>
+                        <div className="mt-2 text-sm font-thin leading-tight">{label}</div>
                         <div className="mt-2 text-[11px] opacity-70">{slot.item?.is_active === false ? "Off" : "Ativo"}</div>
                       </button>
                       {heroDeleteMode && slot.item ? (
@@ -2522,6 +2579,33 @@ export default function AdminPage() {
                           onChange={(value) => setHeroCreateDraft((prev) => ({ ...prev, bgImage: value }))}
                         />
                       </label>
+                      <label className="text-xs uppercase tracking-[0.14em]">
+                        Subir Imagem (mobile)
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0]
+                            if (!file) return
+                            const reader = new FileReader()
+                            reader.onload = () => {
+                              const result = typeof reader.result === "string" ? reader.result : ""
+                              if (!result) return
+                              setHeroCreateDraft((prev) => ({ ...prev, mobileBgImage: result }))
+                            }
+                            reader.readAsDataURL(file)
+                          }}
+                        />
+                      </label>
+                      <label className="text-xs uppercase tracking-[0.14em]">
+                        URL da Imagem (mobile)
+                        <AssetAutocompleteInput
+                          value={heroCreateDraft.mobileBgImage}
+                          options={ASSET_OPTIONS.images}
+                          onChange={(value) => setHeroCreateDraft((prev) => ({ ...prev, mobileBgImage: value }))}
+                        />
+                      </label>
                       <div className="flex items-center gap-2">
                         <Button className="bg-black text-white" onClick={createHeroFromDraft}>
                           Criar Quadro
@@ -2555,7 +2639,7 @@ export default function AdminPage() {
                         <input
                           className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
                           value={editingHeroItem.title}
-                          onChange={(event) => updateEditingHero({ title: event.target.value })}
+                          onChange={(event) => updateEditingHero({ title: event.target.value, modalTitle: event.target.value })}
                         />
                       </label>
                       <label className="text-xs uppercase tracking-[0.14em]">
@@ -2677,8 +2761,34 @@ export default function AdminPage() {
                           onChange={(value) => updateEditingHero({ bgImage: value })}
                         />
                       </label>
+                      <label className="text-xs uppercase tracking-[0.14em]">
+                        Subir imagem (mobile)
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="mt-1 w-full border border-black/20 px-2 py-2 text-sm"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0]
+                            if (!file) return
+                            const reader = new FileReader()
+                            reader.onload = () => {
+                              const result = typeof reader.result === "string" ? reader.result : ""
+                              if (result) updateEditingHero({ mobileBgImage: result })
+                            }
+                            reader.readAsDataURL(file)
+                          }}
+                        />
+                      </label>
+                      <label className="text-xs uppercase tracking-[0.14em]">
+                        URL da imagem (mobile)
+                        <AssetAutocompleteInput
+                          value={editingHeroItem.mobileBgImage}
+                          options={ASSET_OPTIONS.images}
+                          onChange={(value) => updateEditingHero({ mobileBgImage: value })}
+                        />
+                      </label>
                       <div className="flex items-center gap-2">
-                        <Button onClick={saveNow}>Salvar</Button>
+                        <Button onClick={saveHeroModal}>Salvar</Button>
                         <Button onClick={() => updateEditingHero({ is_active: !editingHeroItem.is_active })}>
                           {editingHeroItem.is_active ? "Ativo" : "Off"}
                         </Button>

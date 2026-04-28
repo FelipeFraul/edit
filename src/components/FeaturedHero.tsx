@@ -78,7 +78,7 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
         : layerVariant.bgImage
     const layerMedia = getVariantMedia(layerVariant, isMobileViewport)
     const layerDisplayTitle =
-      layerVariant.pos === 0 ? layerVariant.title ?? "" : layerMedia.title ?? layerVariant.title ?? ""
+      layerVariant.pos === 0 ? layerVariant.title ?? "" : layerVariant.title ?? layerMedia.title ?? ""
     const topLabel =
       layerVariant.topCtaLabel ??
       (layerVariant.pos === 0 ? "AGÊNCIA DE VOZES" : "VER MÍDIA")
@@ -189,9 +189,20 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
               </h1>
 
               {layerVariant.pos === 0 ? null : (
-                <p className="mx-auto mt-[18px] max-w-3xl text-center text-xs font-thin uppercase tracking-[0.3em] text-[#F5F5F5] font-barlow-thin">
-                  {layerVariant.tagline}
-                </p>
+                <div className="mx-auto mt-[18px] flex max-w-3xl flex-col items-center gap-9">
+                  <p className="text-center text-xs font-thin uppercase tracking-[0.3em] text-[#F5F5F5] font-barlow-thin">
+                    {layerVariant.tagline}
+                  </p>
+                  {isMediaCta && onOpenMedia ? (
+                    <button
+                      type="button"
+                      className="btn-vozes !rounded-none inline-flex w-fit items-center gap-3 font-secular whitespace-nowrap"
+                      onClick={() => onOpenMedia(layerVariant)}
+                    >
+                      {topLabel}
+                    </button>
+                  ) : null}
+                </div>
               )}
               {layerVariant.pos === 0 ? (
                 <style>{`
@@ -246,15 +257,6 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
                     </div>
                   </div>
                 </div>
-                {isMediaCta && onOpenMedia ? (
-                  <button
-                    type="button"
-                    className="btn-vozes !rounded-none inline-flex w-fit items-center gap-3 self-end font-secular whitespace-nowrap sm:hidden"
-                    onClick={() => onOpenMedia(layerVariant)}
-                  >
-                    {topLabel}
-                  </button>
-                ) : null}
               </div>
             ) : (
               <p className="sm:flex-1 max-w-3xl text-center text-xs font-thin uppercase tracking-[0.3em] text-[#F5F5F5] font-barlow-thin mx-auto -translate-y-[9rem] sm:-translate-y-[50px]">

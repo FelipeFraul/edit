@@ -218,15 +218,15 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
             <div className={`mx-auto mt-0 w-full ${
               isMobileViewport
                 ? "max-w-none rounded-none bg-transparent px-0 pb-6 pt-0"
-                : "max-w-6xl rounded-[32px] bg-black/60 px-6 pb-6 pt-0 backdrop-blur-xl"
-            } sm:max-w-6xl sm:rounded-[32px] sm:bg-black/60 sm:px-8 sm:pb-8 sm:pt-0 sm:backdrop-blur-xl`}>
+                : "max-w-6xl rounded-none bg-black/60 px-6 pb-6 pt-0 backdrop-blur-xl"
+            } sm:max-w-6xl sm:rounded-none sm:bg-black/60 sm:px-8 sm:pb-8 sm:pt-0 sm:backdrop-blur-xl`}>
               <div className="flex w-full flex-col items-stretch gap-6 sm:items-center">
                 <motion.div
                   className={`overflow-hidden bg-black/90 ${
                     isMobileViewport
                       ? "relative -left-6 w-screen rounded-none border-0 shadow-none"
-                      : "w-full rounded-2xl border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.75)]"
-                  } sm:w-full sm:rounded-2xl sm:border sm:border-white/10 sm:shadow-[0_30px_90px_rgba(0,0,0,0.75)]`}
+                      : "w-full rounded-none border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.75)]"
+                  } sm:w-full sm:rounded-none sm:border sm:border-white/10 sm:shadow-[0_30px_90px_rgba(0,0,0,0.75)]`}
                   initial={{ opacity: 0, y: -40 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
@@ -291,7 +291,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                       <div className="absolute inset-0 z-30 flex items-center justify-center">
                         <button
                           type="button"
-                          className="btn-vozes font-secular"
+                          className="btn-vozes !rounded-none font-secular"
                           onClick={handlePlay}
                         >
                           PLAY

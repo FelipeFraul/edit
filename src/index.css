@@ -178,6 +178,15 @@ a[role="button"]:active,
   cursor: url("/assets/icon/link-off-2-svgrepo-com.svg") 12 12, pointer !important;
 }
 
+.btn-vozes,
+.btn-vozes *,
+.menu-cursor,
+.menu-cursor *,
+a[href],
+a[href] * {
+  cursor: pointer !important;
+}
+
 .push-ew-cursor,
 .push-ew-cursor * {
   cursor: ew-resize !important;

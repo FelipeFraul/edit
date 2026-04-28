@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import FeaturedHero from "./components/FeaturedHero"
 import FullscreenMenu from "./components/FullscreenMenu"
 import MediaModal from "./components/MediaModal"
@@ -48,6 +48,20 @@ const Home: React.FC = () => {
   const mainRef = useRef<HTMLDivElement | null>(null)
   const logoRef = useRef<HTMLDivElement | null>(null)
 
+  const hydrateCmsContent = useCallback(async () => {
+    try {
+      const remoteVersions = await loadVersionsRemote()
+      const versions = remoteVersions ?? loadVersions()
+      const latest = getLatestPublished(versions)
+      const remoteDraft = await loadDraftContentRemote()
+      const localDraft = loadDraftContent()
+      const nextContent = remoteDraft ?? localDraft ?? latest?.data_json
+      setCmsContent(nextContent)
+    } catch (error) {
+      console.error("Failed to hydrate CMS content", error)
+    }
+  }, [])
+
   const heroCarouselVariants = useMemo<HeroVariant[]>(() => {
     const active = (cmsContent.hero?.variants ?? [])
       .filter((entry) => entry.is_active && !entry.deleted_at)
@@ -83,7 +97,7 @@ const Home: React.FC = () => {
           who: entry.who || fallbackMedia?.who || "",
           when: entry.when || fallbackMedia?.when || "",
           category: entry.category || fallbackMedia?.category || "",
-          title: entry.modalTitle || entry.title || fallbackMedia?.title || "",
+          title: entry.title || entry.modalTitle || fallbackMedia?.title || "",
           subtitle: entry.subtitle || fallbackMedia?.subtitle || "",
           modalBodyText: entry.modalBodyText || fallbackMedia?.modalBodyText || "",
           badgeResponsible: entry.badgeResponsible || fallbackMedia?.badgeResponsible || "",
@@ -99,7 +113,7 @@ const Home: React.FC = () => {
           who: entry.who || fallbackMobileMedia?.who || fallbackMedia?.who || "",
           when: entry.when || fallbackMobileMedia?.when || fallbackMedia?.when || "",
           category: entry.category || fallbackMobileMedia?.category || fallbackMedia?.category || "",
-          title: entry.modalTitle || entry.title || fallbackMobileMedia?.title || fallbackMedia?.title || "",
+          title: entry.title || entry.modalTitle || fallbackMobileMedia?.title || fallbackMedia?.title || "",
           subtitle: entry.subtitle || fallbackMobileMedia?.subtitle || fallbackMedia?.subtitle || "",
           modalBodyText: entry.modalBodyText || fallbackMobileMedia?.modalBodyText || fallbackMedia?.modalBodyText || "",
           badgeResponsible: entry.badgeResponsible || fallbackMobileMedia?.badgeResponsible || fallbackMedia?.badgeResponsible || "",
@@ -132,25 +146,32 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false
-    const hydrateContent = async () => {
-      try {
-        const remoteVersions = await loadVersionsRemote()
-        const versions = remoteVersions ?? loadVersions()
-        const latest = getLatestPublished(versions)
-        const remoteDraft = await loadDraftContentRemote()
-        const localDraft = loadDraftContent()
-        const nextContent = remoteDraft ?? localDraft ?? latest?.data_json
-        if (cancelled) return
-        setCmsContent(nextContent)
-      } catch (error) {
-        console.error("Failed to hydrate CMS content", error)
-      }
+    const hydrateIfMounted = async () => {
+      if (cancelled) return
+      await hydrateCmsContent()
     }
-    void hydrateContent()
+    void hydrateIfMounted()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [hydrateCmsContent])
+
+  useEffect(() => {
+    const sync = () => {
+      void hydrateCmsContent()
+    }
+    const syncWhenVisible = () => {
+      if (document.visibilityState === "visible") sync()
+    }
+    window.addEventListener("focus", sync)
+    window.addEventListener("storage", sync)
+    document.addEventListener("visibilitychange", syncWhenVisible)
+    return () => {
+      window.removeEventListener("focus", sync)
+      window.removeEventListener("storage", sync)
+      document.removeEventListener("visibilitychange", syncWhenVisible)
+    }
+  }, [hydrateCmsContent])
 
   useEffect(() => {
     const syncViewport = () => {
