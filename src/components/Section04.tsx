@@ -985,11 +985,72 @@ const voiceFilters: VoiceFilter[] = [
         { id: "estilo-pretas-shirley", name: "Shirley", audioFile: "/assets/audios/estilo/VOZES PRETAS/SHIRLEY RJ BR.mp3" },
       ],
     }
+    const idiomaAudioEntriesByTerm: Record<string, Array<{ id: string; name: string; gender: string; audioFile: string }>> = {
+      INGLES: [
+        {
+          id: "idioma-ingles-jeffry",
+          name: "Jeffry",
+          gender: "MASCULINA",
+          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC - Jeffry EN.wav",
+        },
+        {
+          id: "idioma-ingles-ralph",
+          name: "Ralph",
+          gender: "MASCULINA",
+          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC - RALPH - EN.mp3",
+        },
+        {
+          id: "idioma-ingles-roni",
+          name: "Roni",
+          gender: "MASCULINA",
+          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC - Roni Dalber EN.mp3",
+        },
+        {
+          id: "idioma-ingles-billy",
+          name: "Billy",
+          gender: "MASCULINA",
+          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC _ Billy -EN.mp3",
+        },
+        {
+          id: "idioma-ingles-amin",
+          name: "Amin",
+          gender: "MASCULINA",
+          audioFile: "/assets/audios/idioma/INGLÊS 🇺🇸/NATIVOS INGLÊS - AGENCIAMENTO BRUNO ROCHEL/MASCULINA__/MASC_ Amin EN.mp3",
+        },
+      ],
+      ESPANHOL: [],
+      ITALIANO: [
+        { id: "idioma-italiano-leonel", name: "Leonel", gender: "MASCULINA", audioFile: "/assets/audios/idioma/ITALIANO 🇮🇹/Leonel - IT.mp3" },
+        { id: "idioma-italiano-mario", name: "Mario", gender: "MASCULINA", audioFile: "/assets/audios/idioma/ITALIANO 🇮🇹/Mario - IT.mp3" },
+        { id: "idioma-italiano-pietro", name: "Pietro", gender: "MASCULINA", audioFile: "/assets/audios/idioma/ITALIANO 🇮🇹/Pietro - IT.mp3" },
+      ],
+      MANDARIM: [
+        { id: "idioma-mandarim-cunsue", name: "Cun Sue", gender: "FEMININA", audioFile: "/assets/audios/idioma/MANDARIM🇨🇳/Cun Sue - Mandarin.wav" },
+        { id: "idioma-mandarim-vijhin", name: "Vi Jhin", gender: "FEMININA", audioFile: "/assets/audios/idioma/MANDARIM🇨🇳/Vi Jhin - Mandarin.wav" },
+        { id: "idioma-mandarim-koshiro", name: "Koshiro", gender: "MASCULINA", audioFile: "/assets/audios/idioma/MANDARIM🇨🇳/KOSHIRO.mp3" },
+        { id: "idioma-mandarim-yamato", name: "Yamato", gender: "MASCULINA", audioFile: "/assets/audios/idioma/MANDARIM🇨🇳/YAMATO.mp3" },
+      ],
+      FRANCES: [
+        { id: "idioma-frances-alan", name: "Alan", gender: "MASCULINA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Alan - Francês.mp3" },
+        { id: "idioma-frances-antony", name: "Antony", gender: "MASCULINA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Antony - Francês.mp3" },
+        { id: "idioma-frances-esteban", name: "Esteban", gender: "MASCULINA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Esteban - Francês.mp3" },
+        { id: "idioma-frances-john", name: "John", gender: "MASCULINA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/John - Francês.mp3" },
+        { id: "idioma-frances-felicia", name: "Felicia", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Felicia - French.mp3" },
+        { id: "idioma-frances-lissa", name: "Lissa", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Lissa - French.mp3" },
+        { id: "idioma-frances-louise", name: "Louise", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Louise - French.mp3" },
+        { id: "idioma-frances-manuelle", name: "Manuelle", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Manuelle - French.mp3" },
+        { id: "idioma-frances-virginie", name: "Virginie", gender: "FEMININA", audioFile: "/assets/audios/idioma/FRANCÊS 🇫🇷/Virginie - French.mp3" },
+      ],
+    }
 
     const result = talents
       .filter((talent: VoiceTalentAdmin) => talent.is_active && !talent.deleted_at)
       .map((talent: VoiceTalentAdmin) => {
-        const audioFile = normalizeAudioSrc(talent.audioFile)
+        const audioSource =
+          (selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS") && talent.audioFile?.startsWith("/assets/audios/regiao/")
+            ? talent.audioFile.replace("/assets/audios/regiao/", "/assets/audios/idioma/")
+            : talent.audioFile
+        const audioFile = normalizeAudioSrc(audioSource)
         const assignments = talent.assignments ?? {}
         const scopedPaths = aliasKeys.flatMap((key) => (assignments as Record<string, string[][]>)[key] ?? [])
         const allPaths = Object.values(assignments).flat()
@@ -1019,6 +1080,20 @@ const voiceFilters: VoiceFilter[] = [
       return true
     })
 
+    if (selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS") {
+      const selectedIdiomaTerm = selectedThirdItem ? normalizeLookup(selectedThirdItem) : ""
+      const selectedGenderTerm = selectedSecondItem ? normalizeLookup(selectedSecondItem) : ""
+      if (Object.prototype.hasOwnProperty.call(idiomaAudioEntriesByTerm, selectedIdiomaTerm)) {
+        return (idiomaAudioEntriesByTerm[selectedIdiomaTerm] ?? [])
+          .filter((entry) => !selectedGenderTerm || entry.gender === selectedGenderTerm)
+          .map(({ gender: _gender, ...entry }) => ({
+            ...entry,
+            audioFile: normalizeAudioSrc(entry.audioFile),
+          }))
+      }
+      return uniqueEntries
+    }
+
     if (selectedFilterKey !== "ESTILO") return uniqueEntries
 
     const selectedEstiloTerm = selectedSecondItem ? normalizeLookup(selectedSecondItem) : ""
@@ -1042,12 +1117,12 @@ const voiceFilters: VoiceFilter[] = [
     }
 
     return uniqueEntries
-  }, [talents, selectedFilterKey, selectedSecondItem, selectedTerms])
+  }, [talents, selectedFilterKey, selectedSecondItem, selectedThirdItem, selectedTerms])
 
   const voiceNames: string[] = useMemo(() => {
     const fromTalents = activeTalentEntries.map((entry) => entry.name)
     if (fromTalents.length > 0) return fromTalents
-    if (selectedFilterKey === "ESTILO") return []
+    if (selectedFilterKey === "REGIAO" || selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS" || selectedFilterKey === "ESTILO") return []
     return selectedLeafItem ? getAccentVoiceNames(selectedLeafItem) : []
   }, [activeTalentEntries, selectedFilterKey, selectedLeafItem])
   const maxVoiceOffset = Math.max(0, voiceNames.length - FILTER_VISIBLE_ROWS)
