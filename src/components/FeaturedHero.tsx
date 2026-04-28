@@ -55,7 +55,12 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({
   }, [])
 
   useEffect(() => {
-    if (variant.pos === nextVariant.pos) return
+    if (variant.pos === nextVariant.pos) {
+      setPrevVariant(variant)
+      setNextVariant(variant)
+      setIsTransitioning(false)
+      return
+    }
     setPrevVariant(nextVariant)
     setNextVariant(variant)
     setIsTransitioning(true)
