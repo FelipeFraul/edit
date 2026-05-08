@@ -369,7 +369,7 @@ export const createDefaultAdminContent = (): AdminContent => ({
       mkColumn(3, "LEGAL", [mkLink(1, "Termos de Serviço", "#"), mkLink(2, "Política de Privacidade", "#"), mkLink(3, "Licença", "#")]),
     ],
     copyrightText: "© 2026, Edit Group. Direitos reservados.",
-    city: "Sao Paulo, Brazil.",
+    city: "São Paulo, Brasil.",
     developerCredit: "Desenvolvido por",
   },
 })

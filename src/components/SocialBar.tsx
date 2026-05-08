@@ -14,6 +14,7 @@ type SocialIconButtonProps = {
   iconStyle?: React.CSSProperties
   iconNormalFilter?: string
   className?: string
+  showTooltip?: boolean
 }
 
 type SocialBarProps = {
@@ -33,6 +34,7 @@ function SocialIconButton({
   iconStyle,
   iconNormalFilter,
   className = "",
+  showTooltip = false,
 }: SocialIconButtonProps) {
   const whiteFilter = "brightness(0) saturate(100%) invert(100%)"
 
@@ -58,6 +60,11 @@ function SocialIconButton({
         }}
         draggable={false}
       />
+      {showTooltip ? (
+        <span className="pointer-events-none absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 whitespace-nowrap border border-white/15 bg-black/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/80 opacity-0 shadow-lg backdrop-blur-md transition duration-150 group-hover:opacity-100">
+          {label}
+        </span>
+      ) : null}
     </a>
   )
 }
@@ -143,6 +150,7 @@ export default function SocialBar({
               iconOpacityClass={item.iconOpacityClass}
               iconStyle={item.iconStyle}
               iconNormalFilter={item.iconNormalFilter}
+              showTooltip
             />
           ))}
         </div>

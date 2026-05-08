@@ -3,10 +3,40 @@ import { createPortal } from "react-dom"
 import { SAVED_BIG_NUMBERS_STATS } from "./Section05"
 import type { AdminContent, FooterColumnAdmin, FooterLinkAdmin, StatAdmin } from "../admin/types"
 
-const fallbackFooterColumns = [
-  { title: "SUPORTE", links: ["11 94512-8115", "falecomedit@gmail.com"] },
-  { title: "EMPRESA", links: ["Sobre", "Agência de Vozes", "Clientes"] },
-  { title: "LEGAL", links: ["Termos de Serviço", "Política de Privacidade", "Licença"] },
+type FooterLinkView = {
+  label: string
+  url: string
+}
+
+type FooterColumnView = {
+  title: string
+  links: FooterLinkView[]
+}
+
+const fallbackFooterColumns: FooterColumnView[] = [
+  {
+    title: "SUPORTE",
+    links: [
+      { label: "11 94512-8115", url: "https://wa.me/5511945128115" },
+      { label: "falecomedit@gmail.com", url: "mailto:falecomedit@gmail.com" },
+    ],
+  },
+  {
+    title: "EMPRESA",
+    links: [
+      { label: "Sobre", url: "#secao-01" },
+      { label: "Agência de Vozes", url: "#secao-04" },
+      { label: "Clientes", url: "#secao-05" },
+    ],
+  },
+  {
+    title: "LEGAL",
+    links: [
+      { label: "Termos de Serviço", url: "#" },
+      { label: "Política de Privacidade", url: "#" },
+      { label: "Licença", url: "#" },
+    ],
+  },
 ]
 
 const footerOffsetClassByTitle: Record<string, string> = {
@@ -36,6 +66,14 @@ const scrollToFooterLink = (href: string) => {
   if (!target) return
   target.scrollIntoView({ behavior: "smooth", block: "start" })
   window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`)
+}
+
+const isExternalFooterHref = (href: string) => /^https?:\/\//i.test(href)
+
+const resolveFooterHref = (label: string, url: string) => {
+  const sectionHref = getFooterLinkHref(label)
+  if (sectionHref !== "#") return sectionHref
+  return url || "#"
 }
 
 type LegalDocId = "terms" | "privacy" | "license"
@@ -384,8 +422,11 @@ const Section06: React.FC<Section06Props> = ({ content, footer }) => {
       links: (column.links ?? [])
         .filter((entry: FooterLinkAdmin) => entry.is_active && !entry.deleted_at)
         .sort(byOrder)
-        .map((entry) => entry.label || entry.url)
-        .filter(Boolean),
+        .map((entry) => ({
+          label: entry.label || entry.url,
+          url: resolveFooterHref(entry.label, entry.url),
+        }))
+        .filter((entry) => entry.label),
     }))
   }, [footer?.columns])
 
@@ -589,26 +630,30 @@ const Section06: React.FC<Section06Props> = ({ content, footer }) => {
                     </h3>
                     <ul className="mt-3 -space-y-1">
                       {column.links.map((link) => {
-                        const legalDocId = getLegalDocId(link)
-                        const href = getFooterLinkHref(link)
+                        const legalDocId = getLegalDocId(link.label)
+                        const href = resolveFooterHref(link.label, link.url)
                         return (
-                          <li key={link}>
+                          <li key={`${link.label}-${href}`}>
                             <a
                               href={legalDocId ? "#" : href}
+                              target={!legalDocId && isExternalFooterHref(href) ? "_blank" : undefined}
+                              rel={!legalDocId && isExternalFooterHref(href) ? "noreferrer" : undefined}
                               onClick={
                                 legalDocId
                                   ? (event) => {
                                       event.preventDefault()
                                       openLegalModal(legalDocId)
                                     }
-                                  : (event) => {
-                                      event.preventDefault()
-                                      scrollToFooterLink(href)
-                                    }
+                                  : href.startsWith("#")
+                                    ? (event) => {
+                                        event.preventDefault()
+                                        scrollToFooterLink(href)
+                                      }
+                                    : undefined
                               }
                               className="font-barlow-thin inline-flex cursor-pointer text-[14px] text-white/65 transition hover:text-white"
                             >
-                              {link}
+                              {link.label}
                             </a>
                           </li>
                         )
@@ -620,7 +665,7 @@ const Section06: React.FC<Section06Props> = ({ content, footer }) => {
             </div>
             <div className="s06-enter mt-8 border-t border-white/15 pt-5 text-center sm:text-left" style={{ animationDelay: "920ms" }}>
               <p className="font-barlow-thin text-[12px] leading-[1.2] text-white/65">
-                {footer?.copyrightText || "© 2026, Edit Group. Direitos reservados."} {footer?.city || "Sao Paulo, Brazil."}
+                {footer?.copyrightText || "© 2026, Edit Group. Direitos reservados."} {footer?.city || "São Paulo, Brasil."}
               </p>
               <p className="mt-[6px] font-barlow-thin text-[11px] leading-[1.2] text-white/65">
                 Desenvolvido por{" "}
@@ -700,9 +745,6 @@ const Section06: React.FC<Section06Props> = ({ content, footer }) => {
                     >
                       <span className="font-secular block text-[13px] uppercase tracking-[0.08em]">
                         {doc.title}
-                      </span>
-                      <span className={`font-barlow-thin mt-1 block text-[11px] ${isActive ? "text-black/55" : "text-white/40"}`}>
-                        Rollover
                       </span>
                     </button>
                   )
