@@ -383,6 +383,50 @@ type DraftRow = {
   updated_at?: string
 }
 
+type PublishedSiteContentRow = {
+  id: string
+  status: "published"
+  hero_json: unknown
+  content_json: unknown
+  version_number: number
+  published_at: string
+  published_by: string
+  updated_at: string
+  schema_version: number
+}
+
+const INTERNAL_PUBLIC_KEYS = new Set(["is_active", "deleted_at", "created_at", "updated_at", "order_index"])
+
+const sanitizePublicValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value
+      .filter((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) return true
+        const item = entry as { is_active?: boolean; deleted_at?: unknown }
+        return item.is_active !== false && !item.deleted_at
+      })
+      .sort((a, b) => {
+        const aOrder = a && typeof a === "object" && !Array.isArray(a) ? (a as { order_index?: number }).order_index : undefined
+        const bOrder = b && typeof b === "object" && !Array.isArray(b) ? (b as { order_index?: number }).order_index : undefined
+        if (typeof aOrder !== "number" || typeof bOrder !== "number") return 0
+        return aOrder - bOrder
+      })
+      .map(sanitizePublicValue)
+  }
+
+  if (!value || typeof value !== "object") return value
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !INTERNAL_PUBLIC_KEYS.has(key))
+      .map(([key, entryValue]) => [key, sanitizePublicValue(entryValue)])
+  )
+}
+
+export const sanitizePublicContent = (content: AdminContent): unknown => sanitizePublicValue(content)
+
+export const buildHeroJson = (content: AdminContent): unknown => sanitizePublicValue(content.hero)
+
 export const loadDraftContentRemote = async (): Promise<AdminContent | null> => {
   if (!supabaseConfigured()) return null
   try {
@@ -449,6 +493,36 @@ export const saveVersionRemote = async (version: ContentVersion): Promise<void> 
   } catch (error) {
     console.error("Failed to save admin version to Supabase", error)
     throw error
+  }
+}
+
+export const savePublishedSiteContentRemote = async (version: ContentVersion, publishSecret: string): Promise<boolean> => {
+  const timestamp = new Date().toISOString()
+  const row: PublishedSiteContentRow = {
+    id: ADMIN_DRAFT_ROW_ID,
+    status: "published",
+    hero_json: buildHeroJson(version.data_json),
+    content_json: sanitizePublicContent(version.data_json),
+    version_number: version.version_number,
+    published_at: version.created_at,
+    published_by: version.created_by,
+    updated_at: timestamp,
+    schema_version: 1,
+  }
+
+  try {
+    const response = await fetch("/api/publish-site-content", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-publish-secret": publishSecret,
+      },
+      body: JSON.stringify({ row }),
+    })
+    return response.ok
+  } catch (error) {
+    console.error("Failed to save published site content through API route", error)
+    return false
   }
 }
 

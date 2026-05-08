@@ -33,6 +33,12 @@ const HERO_POSITIONS: Array<-3 | -2 | -1 | 0 | 1 | 2 | 3> = [-3, -2, -1, 0, 1, 2
 
 const MOBILE_HEADER_SHOW_SCROLL_PX = 12
 const MOBILE_HEADER_HIDE_SCROLL_PX = 4
+const REMOTE_HYDRATION_SYNC_INTERVAL_MS = 15000
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number
+  cancelIdleCallback?: (handle: number) => void
+}
 
 const resolveInitialContent = (): AdminContent => {
   return loadDraftContent()
@@ -62,8 +68,12 @@ const Home: React.FC = () => {
   const mainRef = useRef<HTMLDivElement | null>(null)
   const logoRef = useRef<HTMLDivElement | null>(null)
   const hydrationStartedRef = useRef(false)
+  const hydrationInFlightRef = useRef(false)
+  const lastRemoteHydrationAtRef = useRef(0)
 
   const hydrateCmsContent = useCallback(async () => {
+    if (hydrationInFlightRef.current) return
+    hydrationInFlightRef.current = true
     try {
       const remoteDraft = await loadDraftContentRemote()
       if (remoteDraft) {
@@ -81,6 +91,8 @@ const Home: React.FC = () => {
     } catch (error) {
       console.error("Failed to hydrate CMS content", error)
     } finally {
+      lastRemoteHydrationAtRef.current = Date.now()
+      hydrationInFlightRef.current = false
       setCmsHydrated(true)
     }
   }, [])
@@ -169,20 +181,35 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false
-    const hydrateIfMounted = async () => {
+    let idleId: number | null = null
+    let timeoutId: number | null = null
+
+    const hydrateIfMounted = () => {
       if (cancelled) return
       if (hydrationStartedRef.current) return
       hydrationStartedRef.current = true
-      await hydrateCmsContent()
+      void hydrateCmsContent()
     }
-    void hydrateIfMounted()
+
+    const idleWindow = window as IdleWindow
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(hydrateIfMounted, { timeout: 2500 })
+    } else {
+      timeoutId = window.setTimeout(hydrateIfMounted, 1200)
+    }
+
     return () => {
       cancelled = true
+      if (idleId !== null && idleWindow.cancelIdleCallback) idleWindow.cancelIdleCallback(idleId)
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
     }
   }, [hydrateCmsContent])
 
   useEffect(() => {
     const sync = () => {
+      const nowMs = Date.now()
+      if (hydrationInFlightRef.current) return
+      if (nowMs - lastRemoteHydrationAtRef.current < REMOTE_HYDRATION_SYNC_INTERVAL_MS) return
       void hydrateCmsContent()
     }
     const syncWhenVisible = () => {

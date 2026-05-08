@@ -10,6 +10,7 @@ import {
   saveAdminSession,
   saveDraftContent,
   saveDraftContentRemote,
+  savePublishedSiteContentRemote,
   saveVersionRemote,
   saveVersions,
 } from "../admin/storage"
@@ -27,9 +28,9 @@ import type {
   VoiceFilterKey,
   VoiceTalentAdmin,
 } from "../admin/types"
+import { getCurrentAdminAuthUser, signInAdminWithPassword, signOutAdmin } from "../lib/supabaseAuth"
 
-const ADMIN_EMAIL = "admin@editgroup.com"
-const ADMIN_PASSWORD = "edit@123"
+const ADMIN_PUBLISH_SECRET_SESSION_KEY = "edit-admin:publish-secret:v1"
 const MAX_ADMIN_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024
 const MAX_ADMIN_IMAGE_UPLOAD_MB = MAX_ADMIN_IMAGE_UPLOAD_BYTES / 1024 / 1024
 
@@ -1395,18 +1396,24 @@ const LoginView: React.FC<{ onLogin: (session: AdminSession) => void }> = ({ onL
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   return (
     <div className="min-h-screen bg-[#0E1A37] text-white flex items-center justify-center p-6">
       <form
         onSubmit={(event) => {
           event.preventDefault()
-          if (email.trim().toLowerCase() !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+          setError("")
+          setIsSubmitting(true)
+          void signInAdminWithPassword(email.trim().toLowerCase(), password)
+            .then((user) => {
+              const session: AdminSession = { email: user.email ?? email.trim().toLowerCase(), logged_at: now() }
+              saveAdminSession(session)
+              onLogin(session)
+            })
+            .catch(() => {
             setError("Credenciais inválidas")
-            return
-          }
-          const session: AdminSession = { email: ADMIN_EMAIL, logged_at: now() }
-          saveAdminSession(session)
-          onLogin(session)
+            })
+            .finally(() => setIsSubmitting(false))
         }}
         className="w-full max-w-md border border-white/30 bg-black/30 p-6 space-y-4"
       >
@@ -1414,10 +1421,21 @@ const LoginView: React.FC<{ onLogin: (session: AdminSession) => void }> = ({ onL
         <input className="w-full border border-white/40 bg-transparent px-3 py-2 text-sm" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" />
         <input type="password" className="w-full border border-white/40 bg-transparent px-3 py-2 text-sm" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha" />
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
-        <button type="submit" className="w-full border border-white/50 bg-white py-2 text-sm uppercase tracking-[0.18em] text-black transition-colors duration-200 hover:bg-black hover:text-white">Entrar</button>
+        <button type="submit" disabled={isSubmitting} className="w-full border border-white/50 bg-white py-2 text-sm uppercase tracking-[0.18em] text-black transition-colors duration-200 hover:bg-black hover:text-white disabled:cursor-wait disabled:opacity-60">
+          {isSubmitting ? "Entrando" : "Entrar"}
+        </button>
       </form>
     </div>
   )
+}
+
+const getAdminPublishSecret = () => {
+  const savedSecret = window.sessionStorage.getItem(ADMIN_PUBLISH_SECRET_SESSION_KEY)
+  if (savedSecret) return savedSecret
+  const promptedSecret = window.prompt("Informe o segredo de publicacao do admin.")
+  if (!promptedSecret) return null
+  window.sessionStorage.setItem(ADMIN_PUBLISH_SECRET_SESSION_KEY, promptedSecret)
+  return promptedSecret
 }
 
 export default function AdminPage() {
@@ -1522,6 +1540,26 @@ export default function AdminPage() {
   useEffect(() => {
     contentRef.current = content
   }, [content])
+
+  useEffect(() => {
+    let cancelled = false
+    const syncAuthSession = async () => {
+      const user = await getCurrentAdminAuthUser()
+      if (cancelled) return
+      if (!user?.email) {
+        clearAdminSession()
+        setSession(null)
+        return
+      }
+      const nextSession: AdminSession = { email: user.email, logged_at: now() }
+      saveAdminSession(nextSession)
+      setSession(nextSession)
+    }
+    void syncAuthSession()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1696,14 +1734,10 @@ export default function AdminPage() {
         version_number: nextVersion,
         data_json: contentToPublish,
         created_at: now(),
-        created_by: session?.email ?? ADMIN_EMAIL,
+        created_by: session?.email ?? "admin",
         is_published: true,
       }
       const localPublishedVersions = mergeContentVersions([...sourceVersions, next])
-      setVersions(localPublishedVersions)
-      saveVersions(localPublishedVersions)
-      setStatus("published")
-      setPublishedToastOpen(true)
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
@@ -1715,6 +1749,26 @@ export default function AdminPage() {
           }
         }
       }
+
+      const publishSecret = getAdminPublishSecret()
+      if (!publishSecret) {
+        window.alert("Publicacao cancelada: informe o segredo de publicacao para atualizar a versao publica do site.")
+        return
+      }
+
+      const publicSaved = await savePublishedSiteContentRemote(next, publishSecret)
+      if (!publicSaved) {
+        window.sessionStorage.removeItem(ADMIN_PUBLISH_SECRET_SESSION_KEY)
+        window.alert(
+          "Nao foi possivel publicar a versao publica do site no Supabase. O rascunho foi salvo, mas o status nao sera marcado como publicado ate essa etapa concluir."
+        )
+        return
+      }
+
+      setVersions(localPublishedVersions)
+      saveVersions(localPublishedVersions)
+      setStatus("published")
+      setPublishedToastOpen(true)
     } catch (error) {
       console.error("Failed to publish admin content", error)
     } finally {
@@ -2478,7 +2532,17 @@ export default function AdminPage() {
             </Button>
             <Button onClick={revertPublished}>Reverter</Button>
             <Button onClick={() => setShowHistory((value) => !value)}>Histórico</Button>
-            <Button className="border-red-400 text-red-700" onClick={() => { clearAdminSession(); setSession(null) }}>Logout</Button>
+            <Button
+              className="border-red-400 text-red-700"
+              onClick={() => {
+                void signOutAdmin().finally(() => {
+                  clearAdminSession()
+                  setSession(null)
+                })
+              }}
+            >
+              Logout
+            </Button>
           </div>
         </div>
       </header>
