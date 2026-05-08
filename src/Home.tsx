@@ -20,9 +20,7 @@ import {
   loadDraftContent,
   loadDraftContentRemote,
   loadVersions,
-  loadVersionsRemote,
   saveDraftContent,
-  saveVersions,
 } from "./admin/storage"
 import type { AdminContent } from "./admin/types"
 
@@ -40,14 +38,21 @@ const resolveInitialContent = (): AdminContent => {
   return loadDraftContent()
 }
 
+const mergeContentVersions = (items: ReturnType<typeof loadVersions>) => {
+  const byId = new Map<string, (typeof items)[number]>()
+  for (const item of items) byId.set(item.id, item)
+  return Array.from(byId.values()).sort((a, b) => a.version_number - b.version_number)
+}
+
 const Home: React.FC = () => {
   const [cmsContent, setCmsContent] = useState<AdminContent>(() => resolveInitialContent())
-  const [cmsHydrated, setCmsHydrated] = useState(false)
+  const [cmsHydrated, setCmsHydrated] = useState(true)
   const [pos, setPos] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0)
   const [mediaOpen, setMediaOpen] = useState(false)
   const [mediaItem, setMediaItem] = useState<MediaItem | null>(null)
   const [mediaIndex, setMediaIndex] = useState<number>(0)
   const [logoTintStartPx, setLogoTintStartPx] = useState<number>(9999)
+  const [logoBaseColor, setLogoBaseColor] = useState<string>("#ffffff")
   const [logoTintColor, setLogoTintColor] = useState<string>("#4c007d")
   const [headerIsLight, setHeaderIsLight] = useState(false)
   const [mobileHeaderBgVisible, setMobileHeaderBgVisible] = useState(false)
@@ -56,17 +61,22 @@ const Home: React.FC = () => {
   const [mobileViewportWidth, setMobileViewportWidth] = useState(0)
   const mainRef = useRef<HTMLDivElement | null>(null)
   const logoRef = useRef<HTMLDivElement | null>(null)
+  const hydrationStartedRef = useRef(false)
 
   const hydrateCmsContent = useCallback(async () => {
     try {
-      const remoteVersions = await loadVersionsRemote()
-      const versions = remoteVersions ?? loadVersions()
-      const latest = getLatestPublished(versions)
       const remoteDraft = await loadDraftContentRemote()
+      if (remoteDraft) {
+        saveDraftContent(remoteDraft)
+        setCmsContent(remoteDraft)
+        return
+      }
+
+      const localVersions = loadVersions()
+      const versions = mergeContentVersions(localVersions)
+      const latest = getLatestPublished(versions)
       const localDraft = loadDraftContent()
-      const nextContent = remoteDraft ?? localDraft ?? latest?.data_json
-      if (remoteDraft) saveDraftContent(remoteDraft)
-      if (remoteVersions) saveVersions(remoteVersions)
+      const nextContent = latest?.data_json ?? localDraft
       setCmsContent(nextContent)
     } catch (error) {
       console.error("Failed to hydrate CMS content", error)
@@ -161,6 +171,8 @@ const Home: React.FC = () => {
     let cancelled = false
     const hydrateIfMounted = async () => {
       if (cancelled) return
+      if (hydrationStartedRef.current) return
+      hydrationStartedRef.current = true
       await hydrateCmsContent()
     }
     void hydrateIfMounted()
@@ -223,6 +235,7 @@ const Home: React.FC = () => {
       setMobileRolloverProgress(isMobile ? Math.min(1, Math.max(0, scrollTop / 200)) : 0)
       if (isMobile) {
         setHeaderIsLight(false)
+        setLogoBaseColor("#ffffff")
         setLogoTintColor("#ffffff")
         setLogoTintStartPx(0)
         return
@@ -252,29 +265,30 @@ const Home: React.FC = () => {
       )
       if (!targets.length) return
 
-      let active = targets[0]
-      let bestDist = Math.abs(active.top - logoRect.top)
-      for (let i = 1; i < targets.length; i += 1) {
-        const dist = Math.abs(targets[i].top - logoRect.top)
-        if (dist < bestDist) {
-          bestDist = dist
-          active = targets[i]
+      let currentIndex = 0
+      for (let i = 0; i < targets.length; i += 1) {
+        if (targets[i].top <= logoRect.top) {
+          currentIndex = i
+        } else {
+          break
         }
       }
 
-      const lineY = active.top
-      setLogoTintColor(active.logoColor)
+      const crossingIndex = targets.findIndex(
+        (target) => target.top > logoRect.top && target.top < logoRect.bottom
+      )
+      const active = targets[currentIndex]
+      const crossing = crossingIndex >= 0 ? targets[crossingIndex] : null
+
+      setLogoBaseColor(active.logoColor)
+      setLogoTintColor(crossing?.logoColor ?? active.logoColor)
       setHeaderIsLight(active.menuIsLight)
 
-      if (lineY <= logoRect.top) {
+      if (!crossing) {
         setLogoTintStartPx(0)
         return
       }
-      if (lineY >= logoRect.bottom) {
-        setLogoTintStartPx(logoRect.height)
-        return
-      }
-      setLogoTintStartPx(lineY - logoRect.top)
+      setLogoTintStartPx(crossing.top - logoRect.top)
     }
 
     let rafId: number | null = null
@@ -301,6 +315,7 @@ const Home: React.FC = () => {
   }
 
   const openMedia = (current: HeroVariant) => {
+    if (current.pos === 0) return
     const currentMedia = getVariantMedia(current, isMobileViewport)
     const idx = heroCarouselVariants.findIndex((entry) => entry.pos === current.pos)
     setMediaIndex(idx >= 0 ? idx : 0)
@@ -320,8 +335,13 @@ const Home: React.FC = () => {
   const goMedia = (direction: -1 | 1) => {
     const total = heroCarouselVariants.length
     if (total === 0) return
-    const nextIndex = (mediaIndex + direction + total) % total
+    let nextIndex = mediaIndex
+    for (let step = 0; step < total; step += 1) {
+      nextIndex = (nextIndex + direction + total) % total
+      if (heroCarouselVariants[nextIndex]?.pos !== 0) break
+    }
     const nextVariant = heroCarouselVariants[nextIndex]
+    if (!nextVariant || nextVariant.pos === 0) return
     const fallback: MediaItem = {
       who: "",
       when: "",
@@ -404,7 +424,7 @@ const Home: React.FC = () => {
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-0 block h-full w-full"
                     style={{
-                      backgroundColor: "#ffffff",
+                      backgroundColor: logoBaseColor,
                       WebkitMaskImage: "url('/assets/logotipo/logo_edit_group.webp')",
                       maskImage: "url('/assets/logotipo/logo_edit_group.webp')",
                       WebkitMaskRepeat: "no-repeat",

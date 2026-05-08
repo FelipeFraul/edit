@@ -152,7 +152,7 @@ function ArrowPill({
         onPush?.()
       }}
       className={[
-        "group relative z-10 inline-flex h-10 w-[4.25rem] select-none items-center justify-center rounded-none px-0 sm:h-9 sm:w-[128px]",
+        "group relative z-10 inline-flex h-10 w-[5.25rem] select-none items-center justify-center rounded-none px-0 sm:h-9 sm:w-[128px]",
         "touch-none push-ew-cursor",
         "border border-white/25 bg-white/5 text-white sm:backdrop-blur-md",
         keepGlow ? "!border-white/70" : "",
@@ -161,12 +161,12 @@ function ArrowPill({
         animation: idleAnimationEnabled ? "stageDialElasticIdle 8.8s cubic-bezier(0.22, 0.86, 0.24, 1) infinite" : "none",
       }}
     >
-      <span className="pointer-events-none grid w-full grid-cols-[1.5rem_1fr_1.5rem] items-center px-1 text-[10px] font-thin tracking-[0.2em] text-white/80 sm:grid-cols-[1.75rem_1fr_1.75rem] sm:px-2">
+      <span className="pointer-events-none grid w-full grid-cols-2 items-center px-3 text-[10px] font-thin tracking-[0.2em] text-white/80 sm:grid-cols-[1.75rem_1fr_1.75rem] sm:px-2">
         <img
           src="/assets/icon/left-2-svgrepo-com.svg"
           alt=""
           aria-hidden="true"
-          className={`mx-auto h-4 w-4 object-contain brightness-0 invert transition-opacity duration-500 ease-in-out sm:h-[18px] sm:w-[18px] ${
+          className={`mx-auto h-4 w-4 justify-self-center object-contain brightness-0 invert transition-opacity duration-500 ease-in-out sm:h-[18px] sm:w-[18px] ${
             idleDirection === "right" ? "opacity-20" : "opacity-90"
           }`}
         />
@@ -175,7 +175,7 @@ function ArrowPill({
           src="/assets/icon/right-2-svgrepo-com.svg"
           alt=""
           aria-hidden="true"
-          className={`mx-auto h-4 w-4 object-contain brightness-0 invert transition-opacity duration-500 ease-in-out sm:h-[18px] sm:w-[18px] ${
+          className={`mx-auto h-4 w-4 justify-self-center object-contain brightness-0 invert transition-opacity duration-500 ease-in-out sm:h-[18px] sm:w-[18px] ${
             idleDirection === "left" ? "opacity-20" : "opacity-90"
           }`}
         />

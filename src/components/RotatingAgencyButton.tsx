@@ -38,9 +38,9 @@ export default function RotatingAgencyButton() {
     const target = document.getElementById("secao-04")
     if (target) {
       target.scrollIntoView({ behavior: "smooth", block: "start" })
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`)
       return
     }
-    window.location.hash = "#secao-04"
   }
 
   return (

@@ -138,11 +138,10 @@ const idiomaTree: Record<string, string[]> = {
   INGLÊS: ["AMERICANO", "BRITÂNICO", "AUSTRALIANO", "CANADENSE", "IRLANDÊS", "ESCOCÊS"],
   ESPANHOL: ["ESPANHA", "LATINO", "RIOPLATENSE", "CARIBENHO", "MEXICANO", "ANDINO", "CHILENO", "COLOMBIANO"],
   FRANCÊS: ["FRANÇA", "CANADÁ (QUEBEC)", "BÉLGICA", "SUÍÇA"],
-  ALEMÃO: ["ALEMANHA", "ÁUSTRIA", "SUÍÇA"],
   ITALIANO: ["ITÁLIA (PADRÃO)", "NORTE", "SUL"],
   ÁRABE: ["PADRÃO (MSA)", "EGÍPCIO", "LEVANTINO", "GOLFO", "MAGREBINO"],
   MANDARIM: ["PUTONGHUA (PADRÃO)", "TAIWAN", "SINGAPURA"],
-  JAPONÊS: ["TOKYO (PADRÃO)", "KANSAI"],
+  "PORTUGUÊS PORTUGAL": ["PORTUGAL"],
 }
 
 const timbreTree: Record<string, string[]> = {

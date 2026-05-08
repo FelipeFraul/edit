@@ -6,15 +6,13 @@ const BAR_BORDER_CLASS = "border-white/20"
 
 type SocialIconButtonProps = {
   label: string
+  href: string
   iconSrc: string
   iconClassName?: string
   iconToneClass?: string
   iconOpacityClass?: string
   iconStyle?: React.CSSProperties
   iconNormalFilter?: string
-  tooltipBgClass?: string
-  tooltipBorderClass?: string
-  tooltipTextClass?: string
   className?: string
 }
 
@@ -27,24 +25,24 @@ type SocialBarProps = {
 
 function SocialIconButton({
   label,
+  href,
   iconSrc,
   iconClassName = "h-3 w-3",
   iconToneClass = "brightness-0 invert",
   iconOpacityClass = "opacity-90 group-hover:opacity-100",
   iconStyle,
   iconNormalFilter,
-  tooltipBgClass = "bg-black/75",
-  tooltipBorderClass = "border-white/25",
-  tooltipTextClass = "text-white/90",
   className = "",
 }: SocialIconButtonProps) {
   const whiteFilter = "brightness(0) saturate(100%) invert(100%)"
 
   return (
-    <button
-      type="button"
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
       aria-label={label}
-      className={`group relative transition ${className}`}
+      className={`group relative inline-flex cursor-pointer transition ${className}`}
     >
       <img
         src={iconSrc}
@@ -60,12 +58,7 @@ function SocialIconButton({
         }}
         draggable={false}
       />
-      <span
-        className={`pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-none border px-2 py-1 text-[10px] uppercase tracking-[0.08em] opacity-0 translate-x-1 transition duration-150 group-hover:translate-x-0 group-hover:opacity-100 ${tooltipBgClass} ${tooltipBorderClass} ${tooltipTextClass}`}
-      >
-        {label}
-      </span>
-    </button>
+    </a>
   )
 }
 
@@ -86,6 +79,7 @@ export default function SocialBar({
   const socialItems = [
     {
       label: "WhatsApp",
+      href: "https://wa.me/5511945128115",
       iconSrc: "/assets/icon/whatsapp.svg",
       iconClassName: "h-6 w-6",
       iconToneClass: "",
@@ -94,29 +88,22 @@ export default function SocialBar({
         filter: "brightness(0) saturate(100%) invert(67%) sepia(44%) saturate(1074%) hue-rotate(88deg) brightness(93%) contrast(94%)",
       },
       iconOpacityClass: "opacity-100 group-hover:opacity-100",
-      tooltipBgClass: "bg-black/80",
-      tooltipBorderClass: "border-green-400/40",
-      tooltipTextClass: "text-green-300/95",
     },
     {
       label: "Instagram",
+      href: "https://www.instagram.com/editgroupbr/",
       iconSrc: "/assets/icon/instagram.svg",
       iconClassName: "h-[0.975rem] w-[0.975rem] sm:h-3 sm:w-3",
       iconToneClass: "brightness-0 invert",
       iconOpacityClass: "opacity-30 group-hover:opacity-100",
-      tooltipBgClass: "bg-black/75",
-      tooltipBorderClass: "border-white/25",
-      tooltipTextClass: "text-white/90",
     },
     {
       label: "Vimeo",
+      href: "https://vimeo.com/user255271901",
       iconSrc: "/assets/icon/vimeo.svg",
       iconClassName: "h-[0.975rem] w-[0.975rem] sm:h-3 sm:w-3",
       iconToneClass: "brightness-0 invert",
       iconOpacityClass: "opacity-30 group-hover:opacity-100",
-      tooltipBgClass: "bg-black/75",
-      tooltipBorderClass: "border-white/25",
-      tooltipTextClass: "text-white/90",
     },
   ]
 
@@ -149,15 +136,13 @@ export default function SocialBar({
             <SocialIconButton
               key={item.label}
               label={item.label}
+              href={item.href}
               iconSrc={item.iconSrc}
               iconClassName={item.iconClassName}
               iconToneClass={item.iconToneClass}
               iconOpacityClass={item.iconOpacityClass}
               iconStyle={item.iconStyle}
               iconNormalFilter={item.iconNormalFilter}
-              tooltipBgClass={item.tooltipBgClass}
-              tooltipBorderClass={item.tooltipBorderClass}
-              tooltipTextClass={item.tooltipTextClass}
             />
           ))}
         </div>
@@ -177,6 +162,7 @@ export default function SocialBar({
           <SocialIconButton
             key={`mobile-${item.label}`}
             label={item.label}
+            href={item.href}
             iconSrc={item.iconSrc}
             iconClassName={item.iconClassName}
             iconToneClass={item.iconToneClass}

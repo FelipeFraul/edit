@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react"
+﻿import React, { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { createPortal } from "react-dom"
 import type { MediaItem } from "../heroVariants"
@@ -44,10 +44,10 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
     </React.Fragment>
   ))
   const credits = [
-    { title: "RESPONSÁVEL", value: item?.badgeResponsible || "Felipe Fraul" },
-    { title: "AGÊNCIA", value: item?.badgeAgency || "Thruster" },
-    { title: "PROD. VÍDEO", value: item?.badgeProdVideo || "O2 filmes" },
-    { title: "PROD. ÁUDIO", value: item?.badgeProdAudio || "Edit Group" },
+    { title: "RESPONSÃVEL", value: item?.badgeResponsible || "Felipe Fraul" },
+    { title: "AGÃŠNCIA", value: item?.badgeAgency || "Thruster" },
+    { title: "PROD. VÃDEO", value: item?.badgeProdVideo || "O2 filmes" },
+    { title: "PROD. ÃUDIO", value: item?.badgeProdAudio || "Edit Group" },
     { title: "LOCUTOR", value: item?.badgeVoice || "Bruno Rochel" },
     { title: "OPERADOR", value: item?.badgeOperator || "Felipe Fraul" },
   ]
@@ -126,7 +126,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
     }
   }
 
-  const vimeoSrcBase = normalizeVimeoUrl(item?.videoSrc, 1, 1)
+  const vimeoSrcBase = normalizeVimeoUrl(item?.videoSrc, 0, 1)
   const [vimeoSrc, setVimeoSrc] = useState(vimeoSrcBase)
   const vimeoIframeRef = useRef<HTMLIFrameElement | null>(null)
   const [vimeoReady, setVimeoReady] = useState(false)
@@ -149,18 +149,6 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
     if (!target) return
     target.postMessage({ method, value }, "*")
   }
-
-  useEffect(() => {
-    if (!isVimeo || !vimeoReady || vimeoPrewarmed) return
-    postVimeo("play")
-    const t = window.setTimeout(() => {
-      postVimeo("pause")
-      postVimeo("setVolume", 0)
-      postVimeo("setMuted", true)
-      setVimeoPrewarmed(true)
-    }, 220)
-    return () => window.clearTimeout(t)
-  }, [isVimeo, vimeoReady, vimeoPrewarmed])
 
   const handlePlay = async () => {
     if (isVimeo) {
@@ -246,10 +234,9 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                           src={vimeoSrc}
                           title={item.title ?? "Video"}
                           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-                          allowFullScreen
                           onLoad={() => setVimeoReady(true)}
                         />
-                      ) : hasStarted ? (
+                      ) : (
                         <video
                           ref={videoRef}
                           className={`relative z-0 ${
@@ -260,15 +247,7 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                           src={item.videoSrc}
                           poster={item.poster}
                           playsInline
-                          preload="metadata"
-                        />
-                      ) : (
-                        <div
-                          className={`flex items-center justify-center bg-black/90 text-xs font-semibold tracking-[0.3em] text-white/60 ${
-                            mobileFullscreenPlayer
-                              ? "h-[100svh] w-screen"
-                              : "aspect-video h-auto w-screen"
-                          } sm:aspect-[21/9] sm:h-auto sm:w-full`}
+                          preload="auto"
                         />
                       )
                     ) : (
@@ -284,14 +263,10 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                     )}
 
                     {!isPlaying ? (
-                      <div className="absolute inset-0 z-10 bg-black/90" />
-                    ) : null}
-
-                    {!isPlaying ? (
-                      <div className="absolute inset-0 z-30 flex items-center justify-center">
+                      <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
                         <button
                           type="button"
-                          className="btn-vozes !rounded-none font-secular"
+                          className="btn-vozes pointer-events-auto !rounded-none font-secular"
                           onClick={handlePlay}
                         >
                           PLAY
@@ -304,21 +279,33 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
                         type="button"
                         aria-label="Anterior"
                         onClick={onPrev}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-4xl text-white/20 transition hover:text-white/60"
-                    >
-                      〈
-                    </button>
-                  ) : null}
-                  {onNext && !isMobileViewport ? (
-                    <button
-                      type="button"
-                      aria-label="Próximo"
-                      onClick={onNext}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-4xl text-white/20 transition hover:text-white/60"
-                    >
-                      〉
-                    </button>
-                  ) : null}
+                        className="group absolute left-4 top-1/2 z-40 flex h-20 w-20 -translate-y-1/2 items-center justify-center bg-transparent transition"
+                      >
+                        <img
+                          src="/assets/icon/left-2-svgrepo-com.svg"
+                          alt=""
+                          aria-hidden="true"
+                          className="h-12 w-12 brightness-0 invert opacity-45 transition-opacity group-hover:opacity-100"
+                          draggable={false}
+                        />
+                      </button>
+                    ) : null}
+                    {onNext && !isMobileViewport ? (
+                      <button
+                        type="button"
+                        aria-label="Próximo"
+                        onClick={onNext}
+                        className="group absolute right-4 top-1/2 z-40 flex h-20 w-20 -translate-y-1/2 items-center justify-center bg-transparent transition"
+                      >
+                        <img
+                          src="/assets/icon/right-2-svgrepo-com.svg"
+                          alt=""
+                          aria-hidden="true"
+                          className="h-12 w-12 brightness-0 invert opacity-45 transition-opacity group-hover:opacity-100"
+                          draggable={false}
+                        />
+                      </button>
+                    ) : null}
                   </div>
                 </motion.div>
 
@@ -382,3 +369,4 @@ Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed 
   if (!mounted) return null
   return createPortal(content, document.body)
 }
+

@@ -7,7 +7,6 @@ import {
   loadDraftContent,
   loadDraftContentRemote,
   loadVersions,
-  loadVersionsRemote,
   saveAdminSession,
   saveDraftContent,
   saveDraftContentRemote,
@@ -31,6 +30,8 @@ import type {
 
 const ADMIN_EMAIL = "admin@editgroup.com"
 const ADMIN_PASSWORD = "edit@123"
+const MAX_ADMIN_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024
+const MAX_ADMIN_IMAGE_UPLOAD_MB = MAX_ADMIN_IMAGE_UPLOAD_BYTES / 1024 / 1024
 
 const now = () => new Date().toISOString()
 const createId = () =>
@@ -102,6 +103,7 @@ const ASSET_OPTIONS = {
     "/assets/logotipo/isotipo_sicredi.svg",
     "/assets/logotipo/isotipo_smurf.svg",
     "/assets/logotipo/isotipo_amazon.svg",
+    "/assets/logotipo/isotipo_imm.webp",
   ],
   audios: [
     "/assets/audios/NETSHOES - JOVEM CONVERSADO (BRUNOROCHEL).mp3",
@@ -135,6 +137,17 @@ const getAssetFileName = (value: string) => {
   const cleanValue = value.split("?")[0]
   const parts = cleanValue.split("/").filter(Boolean)
   return parts[parts.length - 1] ?? value
+}
+
+const formatFileSizeMb = (bytes: number) => (bytes / 1024 / 1024).toFixed(2)
+
+const validateAdminImageUpload = (file: File, input?: HTMLInputElement | null) => {
+  if (file.size <= MAX_ADMIN_IMAGE_UPLOAD_BYTES) return true
+  window.alert(
+    `Imagem muito pesada (${formatFileSizeMb(file.size)}MB). O limite por imagem no admin e de ${MAX_ADMIN_IMAGE_UPLOAD_MB}MB.`
+  )
+  if (input) input.value = ""
+  return false
 }
 
 const normalizeVideoUrl = (raw: string) => {
@@ -173,6 +186,31 @@ const normalizeVideoUrl = (raw: string) => {
 const normalizeLogoScale = (raw: number) => {
   if (!Number.isFinite(raw)) return 1
   return Math.min(3, Math.max(0.1, Math.round(raw * 10) / 10))
+}
+
+const getContentLastUpdatedAt = (content: AdminContent) => {
+  let latest = 0
+  const visit = (value: unknown) => {
+    if (!value || typeof value !== "object") return
+    if (Array.isArray(value)) {
+      value.forEach(visit)
+      return
+    }
+    const record = value as Record<string, unknown>
+    if (typeof record.updated_at === "string") {
+      const time = new Date(record.updated_at).getTime()
+      if (Number.isFinite(time)) latest = Math.max(latest, time)
+    }
+    Object.values(record).forEach(visit)
+  }
+  visit(content)
+  return latest
+}
+
+const mergeContentVersions = (items: ContentVersion[]) => {
+  const byId = new Map<string, ContentVersion>()
+  for (const item of items) byId.set(item.id, item)
+  return Array.from(byId.values()).sort((a, b) => a.version_number - b.version_number)
 }
 
 const formatLogoScale = (value: number) => {
@@ -294,6 +332,9 @@ const invalidNameTokens = new Set([
   "ITALIANO",
   "MANDARIM",
   "POLONES",
+  "PORTUGUES",
+  "PORTUGAL",
+  "PORTUGUESPORTUGAL",
   "ARABE",
   "CONVERSADO",
   "IMPACTANTE",
@@ -354,6 +395,37 @@ const normalizeLookup = (value: string) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, " ")
     .trim()
+
+const canonicalIdiomaLabels: Record<string, string> = {
+  INGLES: "INGLÊS",
+  ESPANHOL: "ESPANHOL",
+  MANDARIM: "MANDARIM",
+  ITALIANO: "ITALIANO",
+  FRANCES: "FRANCÊS",
+  POLONES: "POLONÊS",
+  ARABE: "ÁRABE",
+  PORTUGUES: "PORTUGUÊS",
+  PORTUGUESPORTUGAL: "PORTUGUÊS PORTUGAL",
+  PORTUGUESPORT: "PORTUGUÊS PORTUGAL",
+  PORTUGUESPT: "PORTUGUÊS PORTUGAL",
+  PORTUGUESDEPORTUGAL: "PORTUGUÊS PORTUGAL",
+}
+
+const canonicalizeIdiomaLabel = (value: string) => {
+  const key = normalizeLookup(value).replace(/\s+/g, "")
+  return canonicalIdiomaLabels[key] ?? value.trim()
+}
+
+const defaultIdiomaOptions = [
+  "INGLÊS",
+  "ESPANHOL",
+  "MANDARIM",
+  "ITALIANO",
+  "FRANCÊS",
+  "POLONÊS",
+  "ÁRABE",
+  "PORTUGUÊS PORTUGAL",
+]
 
 const flattenTaxonomyEntries = (nodes: TaxonomyNode[], prefix: string[] = []): string[][] => {
   const output: string[][] = []
@@ -482,6 +554,7 @@ const idiomaAliases: Record<string, string[]> = {
   MANDARIM: ["MANDARIN", "CHINESE"],
   POLONES: ["POLISH", "POLAND", "POLONIA", "POLONES", "POLONESA", "POL"],
   PORTUGUES: ["PORTUGUESE", "BRAZILIAN PORTUGUESE", "PORTUGAL PORTUGUESE", "PT"],
+  PORTUGUESPORTUGAL: ["PORTUGAL PORTUGUESE", "EUROPEAN PORTUGUESE", "PORTUGUES PORTUGAL", "PORTUGUES PT", "PORTUGAL"],
   ARABE: ["ARABIC", "ARAB", "ARABE", "AR"],
 }
 
@@ -493,6 +566,7 @@ const idiomaRoots: Record<string, string[]> = {
   MANDARIM: ["MANDAR", "CHINES"],
   POLONES: ["POLON", "POLISH"],
   PORTUGUES: ["PORTUG", "LUSO"],
+  PORTUGUESPORTUGAL: ["PORTUGUES PORTUGAL", "PORTUGUES PT", "PORTUGAL"],
   ARABE: ["ARAB"],
 }
 
@@ -830,7 +904,7 @@ const detectBulkGender = (relativePath: string, fileName: string) => {
   return ""
 }
 
-const toIdiomaLabel = (value: string) => normalizeLookup(value).replace(/\s+/g, " ").trim()
+const toIdiomaLabel = (value: string) => canonicalizeIdiomaLabel(normalizeLookup(value).replace(/\s+/g, " ").trim())
 
 const inferIdiomaFromUploadText = (relativePath: string, fileName: string, sourceKey?: VoiceFilterKey) => {
   const normalizedPath = relativePath.replace(/\\/g, "/")
@@ -875,17 +949,17 @@ const inferIdiomaFromUploadText = (relativePath: string, fileName: string, sourc
     for (let index = normalizedSegments.length - 1; index >= 0; index -= 1) {
       const candidate = normalizedSegments[index]
       if (!candidate || ignored.has(candidate)) continue
-      return candidate
+      return canonicalizeIdiomaLabel(candidate)
     }
   }
 
-  if (/(^| )PORTUGUES( |$).*(^| )PT( |$)|(^| )PT( |$).*(^| )PORTUGUES( |$)/.test(text)) return "PORTUGUES PT"
+  if (/(^| )PORTUGUES( |$).*(^| )PT( |$)|(^| )PT( |$).*(^| )PORTUGUES( |$)/.test(text)) return "PORTUGUÊS PORTUGAL"
   if (/(^| )PORTUGUES( |$).*(^| )BR( |$)|(^| )BR( |$).*(^| )PORTUGUES( |$)/.test(text)) return "PORTUGUES BR"
 
   const directMap: Record<string, string> = {
     PORTUGUES: "PORTUGUES",
     PORTUGUESA: "PORTUGUES",
-    PORTUGAL: "PORTUGUES PT",
+    PORTUGAL: "PORTUGUÊS PORTUGAL",
     BRASIL: "PORTUGUES BR",
     BRASILEIRO: "PORTUGUES BR",
     BRASILEIRA: "PORTUGUES BR",
@@ -911,6 +985,30 @@ const inferIdiomaFromUploadText = (relativePath: string, fileName: string, sourc
   }
 
   return ""
+}
+
+const getIdiomaAudioFolder = (value?: string) => {
+  const key = normalizeLookup(value ?? "").replace(/\s+/g, "")
+  const folderByLanguage: Record<string, string> = {
+    INGLES: "INGLÊS",
+    ESPANHOL: "ESPANHOL",
+    FRANCES: "FRANCÊS",
+    ITALIANO: "ITALIANO",
+    MANDARIM: "MANDARIM🇨🇳",
+    ARABE: "ARABE",
+    POLONIA: "POLÔNIA",
+    POLONES: "POLÔNIA",
+    PORTUGUESPORTUGAL: "PORTUGUÊS PORT",
+    PORTUGUESPORT: "PORTUGUÊS PORT",
+    PORTUGUESPT: "PORTUGUÊS PORT",
+  }
+  return folderByLanguage[key] ?? ""
+}
+
+const buildSingleUploadAudioAssetPath = (fileName: string, idiomaHint?: string) => {
+  const inferredIdioma = idiomaHint || inferIdiomaFromUploadText(fileName, fileName, "IDIOMA")
+  const idiomaFolder = getIdiomaAudioFolder(inferredIdioma)
+  return idiomaFolder ? `/assets/audios/idioma/${idiomaFolder}/${fileName}` : `/assets/audios/${fileName}`
 }
 
 const normalizeBulkPathGender = (
@@ -1115,8 +1213,9 @@ const AssetAutocompleteInput: React.FC<{
   )
 }
 
-const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ className = "", ...props }) => (
+const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ className = "", type = "button", ...props }) => (
   <button
+    type={type}
     {...props}
     className={`border border-black/20 px-2 py-1 text-[11px] uppercase tracking-[0.14em] transition-colors duration-200 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
   />
@@ -1324,6 +1423,7 @@ const LoginView: React.FC<{ onLogin: (session: AdminSession) => void }> = ({ onL
 export default function AdminPage() {
   const [session, setSession] = useState<AdminSession | null>(() => loadAdminSession())
   const [content, setContent] = useState<AdminContent>(() => loadDraftContent())
+  const contentRef = React.useRef(content)
   const [versions, setVersions] = useState<ContentVersion[]>(() => loadVersions())
   const [status, setStatus] = useState<AdminStatus>(() => (getLatestPublished(loadVersions()) ? "published" : "draft"))
   const [activeSection, setActiveSection] = useState<SidebarSection>("hero")
@@ -1420,17 +1520,27 @@ export default function AdminPage() {
   )
 
   useEffect(() => {
+    contentRef.current = content
+  }, [content])
+
+  useEffect(() => {
     let cancelled = false
     const hydrateFromRemote = async () => {
-      const [remoteDraft, remoteVersions] = await Promise.all([loadDraftContentRemote(), loadVersionsRemote()])
+      const remoteDraft = await loadDraftContentRemote()
       if (cancelled) return
       if (remoteDraft) {
-        setContent(remoteDraft)
-        void saveDraftContentRemote(remoteDraft)
-      }
-      if (remoteVersions && remoteVersions.length) {
-        setVersions(remoteVersions)
-        setStatus(getLatestPublished(remoteVersions) ? "published" : "draft")
+        const localDraft = contentRef.current
+        const nextDraft =
+          getContentLastUpdatedAt(remoteDraft) >= getContentLastUpdatedAt(localDraft)
+            ? remoteDraft
+            : localDraft
+        contentRef.current = nextDraft
+        setContent(nextDraft)
+        try {
+          saveDraftContent(nextDraft)
+        } catch (error) {
+          console.error("Failed to sync admin draft locally", error)
+        }
       }
     }
     void hydrateFromRemote()
@@ -1530,68 +1640,80 @@ export default function AdminPage() {
   }, [content.footer.columns])
 
   const mutateContent = (updater: (previous: AdminContent) => AdminContent) => {
-    setContent((previous) => updater(previous))
+    const next = updater(contentRef.current)
+    contentRef.current = next
+    setContent(next)
     setStatus("draft")
   }
   const deleteWithConfirm = (label: string, onConfirm: () => void) => {
     if (!window.confirm(`Tem certeza que deseja excluir ${label}?`)) return
     onConfirm()
   }
-  const saveDraft = () => {
-    saveDraftContent(content)
-    void saveDraftContentRemote(content)
+  const persistDraftContent = async (draft: AdminContent = contentRef.current, options: { notifyOnError?: boolean } = {}) => {
+    let localSaved = false
+    try {
+      saveDraftContent(draft)
+      localSaved = true
+    } catch (error) {
+      console.error("Failed to save admin draft locally", error)
+      if (options.notifyOnError) {
+        window.alert(
+          "Nao foi possivel salvar o rascunho neste navegador. O admin tentou limpar o historico local, mas o armazenamento ainda ficou sem espaco. As imagens individuais podem ter ate 2MB; se o erro continuar, publique para salvar no servidor e recarregue."
+        )
+      }
+    }
+    const remoteSaved = await saveDraftContentRemote(draft)
+    if (!remoteSaved && options.notifyOnError) {
+      window.alert(
+        "Nao foi possivel salvar no servidor agora. O rascunho ficou salvo neste navegador, mas o site publicado pode nao atualizar ate o Supabase responder."
+      )
+    }
     setStatus("draft")
-    setLastSavedAt(new Date().toLocaleTimeString())
+    setLastSavedAt(localSaved ? new Date().toLocaleTimeString() : "falha no navegador")
+    return draft
+  }
+  const saveDraft = () => {
+    void persistDraftContent(contentRef.current, { notifyOnError: true })
   }
   const saveNow = () => {
-    saveDraftContent(content)
-    void saveDraftContentRemote(content)
-    setStatus("draft")
-    setLastSavedAt(new Date().toLocaleTimeString())
+    return persistDraftContent(contentRef.current, { notifyOnError: true })
   }
   const saveHeroModal = () => {
-    saveNow()
     setEditingHeroPos(null)
+    void saveNow()
   }
   const publish = async () => {
     if (isPublishing) return
     setIsPublishing(true)
     try {
-      const contentToPublish = content
-      saveDraftContent(contentToPublish)
-      await saveDraftContentRemote(contentToPublish)
+      const contentToPublish = await persistDraftContent(contentRef.current, { notifyOnError: true })
 
-      let publishedVersions: ContentVersion[] | null = null
+      const sourceVersions = mergeContentVersions(versions)
+      const nextVersion =
+        (sourceVersions.length ? Math.max(...sourceVersions.map((entry) => entry.version_number)) : 0) + 1
+      const next: ContentVersion = {
+        id: createId(),
+        version_number: nextVersion,
+        data_json: contentToPublish,
+        created_at: now(),
+        created_by: session?.email ?? ADMIN_EMAIL,
+        is_published: true,
+      }
+      const localPublishedVersions = mergeContentVersions([...sourceVersions, next])
+      setVersions(localPublishedVersions)
+      saveVersions(localPublishedVersions)
+      setStatus("published")
+      setPublishedToastOpen(true)
+
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        const remoteVersions = await loadVersionsRemote()
-        const sourceVersions = [...versions, ...(remoteVersions ?? [])]
-        const nextVersion =
-          (sourceVersions.length ? Math.max(...sourceVersions.map((entry) => entry.version_number)) : 0) + 1
-        const next: ContentVersion = {
-          id: createId(),
-          version_number: nextVersion,
-          data_json: contentToPublish,
-          created_at: now(),
-          created_by: session?.email ?? ADMIN_EMAIL,
-          is_published: true,
-        }
         try {
           await saveVersionRemote(next)
-          publishedVersions = await loadVersionsRemote()
-          if (!publishedVersions?.some((entry) => entry.id === next.id)) {
-            publishedVersions = [...(remoteVersions ?? versions), next]
-          }
           break
         } catch (error) {
-          if (attempt === 2) throw error
+          if (attempt === 2) {
+            console.error("Failed to publish admin content remotely; kept local published version", error)
+          }
         }
-      }
-
-      if (publishedVersions) {
-        setVersions(publishedVersions)
-        saveVersions(publishedVersions)
-        setStatus("published")
-        setPublishedToastOpen(true)
       }
     } catch (error) {
       console.error("Failed to publish admin content", error)
@@ -1600,6 +1722,7 @@ export default function AdminPage() {
     }
   }
   const revertToVersion = (version: ContentVersion) => {
+    contentRef.current = version.data_json
     setContent(version.data_json)
     saveDraftContent(version.data_json)
     void saveDraftContentRemote(version.data_json)
@@ -1657,9 +1780,10 @@ export default function AdminPage() {
           return path[path.length - 1] ?? ""
         })
         .filter(Boolean)
-      return Array.from(new Set(picked.map((value) => normalizeLookup(value)))).map((normalized) => {
-        const found = picked.find((value) => normalizeLookup(value) === normalized)
-        return found ?? normalized
+      const merged = [...defaultIdiomaOptions, ...picked.map((value) => canonicalizeIdiomaLabel(value))]
+      return Array.from(new Set(merged.map((value) => normalizeLookup(value)))).map((normalized) => {
+        const found = merged.find((value) => normalizeLookup(value) === normalized)
+        return canonicalizeIdiomaLabel(found ?? normalized)
       })
     },
     [idiomaFilterRef]
@@ -1897,9 +2021,8 @@ export default function AdminPage() {
 
       const brandsWithCreate = isCreating
         ? normalizeVisibleItems([
-            ...prev.section05.brands,
             {
-              ...createBase(visibleItems(prev.section05.brands).length + 1),
+              ...createBase(1),
               id: targetBrandId,
               name: section05Draft.name,
               logo: section05Draft.logo,
@@ -1907,6 +2030,7 @@ export default function AdminPage() {
               logoScale: normalizeLogoScale(section05Draft.logoScale),
               secondaryLogoScale: normalizeLogoScale(section05Draft.secondaryLogoScale),
             },
+            ...prev.section05.brands,
           ])
         : nextBrands
 
@@ -1944,6 +2068,30 @@ export default function AdminPage() {
       }
     })
     setSection05ModalBrandId(null)
+    void persistDraftContent(contentRef.current, { notifyOnError: true })
+  }
+
+  const deleteSection05Brand = (brandId: string) => {
+    deleteWithConfirm("este cliente", () => {
+      mutateContent((prev) => ({
+        ...prev,
+        section05: {
+          ...prev.section05,
+          brands: markDeleted(prev.section05.brands, brandId),
+          panels: prev.section05.panels.map((panel) =>
+            panel.brand_id === brandId
+              ? { ...panel, is_active: false, deleted_at: now(), updated_at: now() }
+              : panel
+          ),
+          audios: prev.section05.audios.map((audio) =>
+            audio.brand_id === brandId
+              ? { ...audio, is_active: false, deleted_at: now(), updated_at: now() }
+              : audio
+          ),
+        },
+      }))
+      void persistDraftContent(contentRef.current, { notifyOnError: true })
+    })
   }
 
   const openSection07TalentModal = (talentId: string | "new") => {
@@ -1985,7 +2133,7 @@ export default function AdminPage() {
     const options = Array.from(
       new Set(
         rawOptions
-          .map((option) => option.trim())
+          .map((option) => canonicalizeIdiomaLabel(option.trim()))
           .filter(Boolean)
           .map((option) => normalizeLookup(option))
           .filter(Boolean)
@@ -1994,7 +2142,7 @@ export default function AdminPage() {
     if (!options.length) return filters
     const displayByKey = new Map(
       rawOptions
-        .map((option) => option.trim())
+        .map((option) => canonicalizeIdiomaLabel(option.trim()))
         .filter(Boolean)
         .map((option) => [normalizeLookup(option), option] as const)
     )
@@ -2561,6 +2709,7 @@ export default function AdminPage() {
                           onChange={(event) => {
                             const file = event.target.files?.[0]
                             if (!file) return
+                            if (!validateAdminImageUpload(file, event.currentTarget)) return
                             const reader = new FileReader()
                             reader.onload = () => {
                               const result = typeof reader.result === "string" ? reader.result : ""
@@ -2588,6 +2737,7 @@ export default function AdminPage() {
                           onChange={(event) => {
                             const file = event.target.files?.[0]
                             if (!file) return
+                            if (!validateAdminImageUpload(file, event.currentTarget)) return
                             const reader = new FileReader()
                             reader.onload = () => {
                               const result = typeof reader.result === "string" ? reader.result : ""
@@ -2744,6 +2894,7 @@ export default function AdminPage() {
                           onChange={(event) => {
                             const file = event.target.files?.[0]
                             if (!file) return
+                            if (!validateAdminImageUpload(file, event.currentTarget)) return
                             const reader = new FileReader()
                             reader.onload = () => {
                               const result = typeof reader.result === "string" ? reader.result : ""
@@ -2770,6 +2921,7 @@ export default function AdminPage() {
                           onChange={(event) => {
                             const file = event.target.files?.[0]
                             if (!file) return
+                            if (!validateAdminImageUpload(file, event.currentTarget)) return
                             const reader = new FileReader()
                             reader.onload = () => {
                               const result = typeof reader.result === "string" ? reader.result : ""
@@ -2942,7 +3094,10 @@ export default function AdminPage() {
                       <div className="text-xs text-black/70 line-clamp-1">{row.brand.secondaryLogo ? getAssetFileName(row.brand.secondaryLogo) : "Sem segundo logo"}</div>
                       <div className="text-xs text-black/70 line-clamp-2">{row.panel?.companyText || row.panel?.description || "Sem texto"}</div>
                       <div className="text-xs text-black/55 line-clamp-1">{row.panel?.videoSrc || "Sem vídeo"}</div>
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button className="border-red-400 text-red-700" onClick={() => deleteSection05Brand(row.brand.id)}>
+                          Excluir
+                        </Button>
                         <Button onClick={() => openSection05BrandModal(row.brand.id)}>Editar</Button>
                       </div>
                     </div>
@@ -3379,7 +3534,7 @@ export default function AdminPage() {
                     if (!file) return
                     setSection07Draft((prev) => ({
                       ...prev,
-                      audioFile: `/assets/audios/${file.name}`,
+                      audioFile: buildSingleUploadAudioAssetPath(file.name, section07FilterDraft.idioma),
                       audioName: file.name.replace(/\.[^/.]+$/, ""),
                     }))
                   }}

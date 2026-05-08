@@ -42,6 +42,9 @@ const NAV_TILE_NEXT: BrandItem = {
   logoScale: 1.25,
 }
 
+const INTRO_VIDEO_SRC = "/assets/video/Edit_Group_Hero.mp4"
+const INTRO_TITLE = "TRABALHOS"
+
 type Section05Props = {
   content?: AdminContent["section05"]
 }
@@ -67,6 +70,7 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
   const sectionRef = useRef<HTMLElement | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const pendingVideoSeekRef = useRef<number | null>(null)
   const shouldAutoplayNextTrackRef = useRef(false)
   const [isVisible, setIsVisible] = useState(false)
@@ -114,12 +118,40 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
   }, [content?.brands])
 
   const paginationBrands = brands
-  const totalBrandPages = Math.max(1, Math.ceil(paginationBrands.length / BRANDS_PER_PAGE))
-  const currentPageBrands = useMemo(() => {
-    if (!paginationBrands.length) return []
-    const start = brandPageIndex * BRANDS_PER_PAGE
-    return paginationBrands.slice(start, start + BRANDS_PER_PAGE)
-  }, [paginationBrands, brandPageIndex])
+  const brandPages = useMemo(() => {
+    if (!paginationBrands.length) return [[]] as BrandItem[][]
+    if (paginationBrands.length <= BRANDS_PER_PAGE) return [paginationBrands]
+
+    const completedBlockCount = Math.floor(paginationBrands.length / BRANDS_PER_PAGE)
+    const remainderCount = paginationBrands.length % BRANDS_PER_PAGE
+
+    if (remainderCount === 0) {
+      const completePages: BrandItem[][] = []
+      for (let start = paginationBrands.length - BRANDS_PER_PAGE; start >= 0; start -= BRANDS_PER_PAGE) {
+        completePages.push(paginationBrands.slice(start, start + BRANDS_PER_PAGE))
+      }
+      return completePages
+    }
+
+    const currentBlockStart = completedBlockCount * BRANDS_PER_PAGE
+    const previousBlockStart = Math.max(0, currentBlockStart - BRANDS_PER_PAGE)
+    const overflowBrands = paginationBrands.slice(currentBlockStart)
+    const previousBlock = paginationBrands.slice(previousBlockStart, currentBlockStart)
+    const firstPage = [
+      ...overflowBrands,
+      ...previousBlock.slice(0, BRANDS_PER_PAGE - overflowBrands.length),
+    ]
+    const pages = [firstPage]
+
+    for (let blockIndex = completedBlockCount - 2; blockIndex >= 0; blockIndex -= 1) {
+      const start = blockIndex * BRANDS_PER_PAGE
+      pages.push(paginationBrands.slice(start, start + BRANDS_PER_PAGE))
+    }
+
+    return pages
+  }, [paginationBrands])
+  const totalBrandPages = brandPages.length
+  const currentPageBrands = brandPages[Math.min(brandPageIndex, totalBrandPages - 1)] ?? []
 
   const visibleBrands = useMemo(() => {
     const grid: BrandItem[] = []
@@ -149,11 +181,30 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
     setBrandPageIndex(Math.max(0, totalBrandPages - 1))
   }, [brandPageIndex, totalBrandPages])
 
+  useEffect(() => {
+    if (!paginationBrands.length) {
+      setSelectedBrandId("")
+      return
+    }
+    if (!selectedBrandId || paginationBrands.some((brand) => brand.id === selectedBrandId)) return
+    setSelectedBrandId("")
+  }, [paginationBrands, selectedBrandId])
+
   const selectedBrand = paginationBrands.find((brand) => brand.id === selectedBrandId) ?? null
+  const isIntroPanel = !selectedBrand
+  const activeVideoBrandIds = useMemo(() => {
+    const activePanelBrandIds = new Set(
+      (content?.panels ?? [])
+        .filter((panel) => panel.is_active && !panel.deleted_at && panel.videoSrc?.trim())
+        .map((panel) => panel.brand_id)
+    )
+    const withVideo = paginationBrands.filter((brand) => activePanelBrandIds.has(brand.id)).map((brand) => brand.id)
+    return withVideo.length > 0 ? withVideo : paginationBrands.map((brand) => brand.id)
+  }, [content?.panels, paginationBrands])
   const selectedCmsPanel = (content?.panels ?? [])
     .filter((panel) => panel.is_active && !panel.deleted_at)
     .find((panel) => panel.brand_id === selectedBrand?.id)
-  const panelVideoSrc = selectedCmsPanel?.videoSrc?.trim() ?? ""
+  const panelVideoSrc = isIntroPanel ? INTRO_VIDEO_SRC : selectedCmsPanel?.videoSrc?.trim() ?? ""
   const panelVideoEmbedSrc = useMemo(() => {
     if (!panelVideoSrc) return ""
     if (panelVideoSrc.includes("player.vimeo.com")) {
@@ -183,7 +234,11 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
     return null
   }, [panelVideoEmbedSrc])
   const hasVideo = Boolean(panelVideoEmbedSrc)
-  const panelCompanyText = selectedCmsPanel?.companyText?.trim() || selectedCmsPanel?.description?.trim() || content?.text || ""
+  const hasNativeVideo = hasVideo && !videoProvider
+  const panelCompanyText = isIntroPanel
+    ? content?.text || ""
+    : selectedCmsPanel?.companyText?.trim() || selectedCmsPanel?.description?.trim() || content?.text || ""
+  const panelDisplayTitle = isIntroPanel ? INTRO_TITLE : selectedBrand?.name ?? content?.title ?? ""
   const tracks: AudioItem[] = (content?.audios ?? [])
     .filter((audio) => audio.is_active && !audio.deleted_at && audio.brand_id === selectedBrand?.id)
     .sort((a, b) => a.order_index - b.order_index)
@@ -214,6 +269,19 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
   }
 
   const controlVideo = (action: "play" | "pause" | "stop" | "seekBack" | "seekForward") => {
+    if (hasNativeVideo) {
+      const video = videoRef.current
+      if (!video) return false
+      if (action === "play") void video.play().catch(() => setIsPlaying(false))
+      if (action === "pause") video.pause()
+      if (action === "stop") {
+        video.pause()
+        video.currentTime = 0
+      }
+      if (action === "seekBack") video.currentTime = Math.max(0, video.currentTime - 10)
+      if (action === "seekForward") video.currentTime = Math.min(video.duration || video.currentTime + 10, video.currentTime + 10)
+      return true
+    }
     if (!videoProvider) return false
     if (videoProvider === "vimeo") {
       if (action === "play") postVideoMessage({ method: "play" })
@@ -332,6 +400,31 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
     }
   }, [tracks])
 
+  useEffect(() => {
+    if (!hasNativeVideo) return
+    const video = videoRef.current
+    if (!video) return
+
+    const onPlaying = () => {
+      setIsPlaying(true)
+      setActiveControl("play")
+    }
+    const onPause = () => setIsPlaying(false)
+    const onEnded = () => {
+      setIsPlaying(false)
+      setActiveControl("stop")
+    }
+
+    video.addEventListener("playing", onPlaying)
+    video.addEventListener("pause", onPause)
+    video.addEventListener("ended", onEnded)
+    return () => {
+      video.removeEventListener("playing", onPlaying)
+      video.removeEventListener("pause", onPause)
+      video.removeEventListener("ended", onEnded)
+    }
+  }, [hasNativeVideo, panelVideoEmbedSrc])
+
   const handlePlay = () => {
     if (hasTracks) {
       setIsPlaying(true)
@@ -373,40 +466,43 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
     setActiveControl("stop")
   }
 
+  const selectAdjacentVideo = (direction: -1 | 1) => {
+    if (!activeVideoBrandIds.length) return false
+    const currentIndex = activeVideoBrandIds.indexOf(selectedBrandId)
+    const nextIndex =
+      currentIndex < 0
+        ? direction > 0
+          ? 0
+          : activeVideoBrandIds.length - 1
+        : (currentIndex + direction + activeVideoBrandIds.length) % activeVideoBrandIds.length
+    const nextBrandId = activeVideoBrandIds[nextIndex]
+    if (!nextBrandId) return false
+
+    const nextBrandPageIndex = brandPages.findIndex((page) => page.some((brand) => brand.id === nextBrandId))
+    if (nextBrandPageIndex >= 0) setBrandPageIndex(nextBrandPageIndex)
+    setSelectedBrandId(nextBrandId)
+    return true
+  }
+
   const handlePrev = () => {
-    if (hasTracks) {
-      setIsPlaying(false)
-      setTrackIndex((prev) => (prev - 1 + tracks.length) % tracks.length)
-      shouldAutoplayNextTrackRef.current = true
-    } else if (hasVideo) {
-      controlVideo("seekBack")
-    } else {
-      return
-    }
+    if (!selectAdjacentVideo(-1)) return
     setActiveControl("prev")
   }
 
   const handleNext = () => {
-    if (hasTracks) {
-      setIsPlaying(false)
-      setTrackIndex((prev) => (prev + 1) % tracks.length)
-      shouldAutoplayNextTrackRef.current = true
-    } else if (hasVideo) {
-      controlVideo("seekForward")
-    } else {
-      return
-    }
+    if (!selectAdjacentVideo(1)) return
     setActiveControl("next")
   }
 
   const handleBrandSelect = (brand: BrandItem) => {
     if (brand.id === PREV_BRANDS_ID || brand.id === NEXT_BRANDS_ID) {
+      if (totalBrandPages <= 1) return
       const nextPageIndex =
         brand.id === NEXT_BRANDS_ID
           ? (brandPageIndex + 1) % totalBrandPages
           : (brandPageIndex - 1 + totalBrandPages) % totalBrandPages
       setBrandPageIndex(nextPageIndex)
-      const firstBrandInPage = paginationBrands[nextPageIndex * BRANDS_PER_PAGE]
+      const firstBrandInPage = brandPages[nextPageIndex]?.[0]
       if (firstBrandInPage) setSelectedBrandId(firstBrandInPage.id)
       return
     }
@@ -459,15 +555,15 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
             className="s05-enter inline-flex items-center rounded-none border border-black/30 px-4 py-2 text-xs font-thin tracking-[0.3em] text-black/80 font-barlow-thin"
             style={{ animationDelay: "80ms" }}
           >
-            OS CLIENTES
+            TRABALHOS
           </span>
         </div>
 
         <div className="mx-auto mt-9 flex w-full max-w-[1800px] items-start px-0 pb-12 sm:mt-0 sm:items-center sm:pb-12 lg:pb-14">
           <div className="grid w-full grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,450px)_minmax(0,1fr)] xl:gap-10">
             <div className="s05-enter flex max-w-[450px] flex-col justify-center self-center" style={{ animationDelay: "180ms" }}>
-              <h2 className="font-secular mt-0 text-[72px] font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-black">
-                {selectedBrand?.name ?? content?.title ?? ""}
+              <h2 className="font-secular mt-0 text-[48px] font-semibold uppercase leading-[0.92] tracking-[-0.02em] text-black sm:text-[72px]">
+                {panelDisplayTitle}
               </h2>
               <p className="font-barlow-thin mt-10 max-w-[450px] text-[18px] leading-[1.2] text-black/85 sm:text-[18px] lg:text-[18px]">
                 {panelCompanyText}
@@ -534,7 +630,7 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
                   })}
                 </div>
 
-                <div className="flex h-full min-h-0 flex-col gap-3 border border-black/35 bg-transparent p-3">
+                <div className="flex h-full min-h-[360px] flex-col gap-3 border border-black/35 bg-transparent p-3 sm:min-h-0">
                   <div className="relative min-h-0 flex-1 overflow-hidden border border-black/25 bg-white/35">
                     <div
                       aria-hidden="true"
@@ -545,14 +641,26 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
                       }}
                     />
                     <div className="relative h-full w-full">
-                      {panelVideoEmbedSrc ? (
+                      {panelVideoEmbedSrc && hasNativeVideo ? (
+                        <video
+                          ref={videoRef}
+                          key={panelVideoEmbedSrc}
+                          className="absolute left-1/2 top-1/2 h-full w-full -translate-x-1/2 -translate-y-1/2 scale-[1.04] object-cover"
+                          src={panelVideoEmbedSrc}
+                          autoPlay
+                          muted
+                          loop={isIntroPanel}
+                          playsInline
+                          preload="metadata"
+                          disablePictureInPicture
+                        />
+                      ) : panelVideoEmbedSrc ? (
                         <iframe
                           ref={iframeRef}
                           title={`Video ${selectedBrand?.name ?? "marca"}`}
                           src={panelVideoEmbedSrc}
                           className="absolute left-1/2 top-1/2 h-full w-full -translate-x-1/2 -translate-y-1/2 scale-[1.04] border-0"
                           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-                          allowFullScreen
                           loading="lazy"
                           referrerPolicy="strict-origin-when-cross-origin"
                         />
@@ -585,9 +693,9 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
                       <button
                         type="button"
                         onClick={handlePrev}
-                        disabled={!hasMediaControls}
-                        className="inline-flex h-9 w-9 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:opacity-40"
-                        aria-label="Voltar áudio"
+                        disabled={activeVideoBrandIds.length <= 1}
+                        className="s05-player-control inline-flex h-9 w-9 cursor-pointer appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:cursor-default disabled:opacity-40"
+                        aria-label="Vídeo anterior"
                       >
                         <img
                           src="/assets/icon/left-2-svgrepo-com.svg"
@@ -601,7 +709,7 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
                         type="button"
                         onClick={handlePlay}
                         disabled={!hasMediaControls || isPlaying}
-                        className="inline-flex h-9 w-9 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:opacity-60"
+                        className="s05-player-control inline-flex h-9 w-9 cursor-pointer appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:cursor-default disabled:opacity-60"
                         aria-label="Play áudio"
                       >
                         <img
@@ -616,7 +724,7 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
                         type="button"
                         onClick={handlePause}
                         disabled={!hasMediaControls || !isPlaying}
-                        className="inline-flex h-9 w-9 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:opacity-60"
+                        className="s05-player-control inline-flex h-9 w-9 cursor-pointer appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:cursor-default disabled:opacity-60"
                         aria-label="Pausar áudio"
                       >
                         <img
@@ -631,7 +739,7 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
                         type="button"
                         onClick={handleStop}
                         disabled={!hasMediaControls}
-                        className="inline-flex h-9 w-9 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:opacity-40"
+                        className="s05-player-control inline-flex h-9 w-9 cursor-pointer appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:cursor-default disabled:opacity-40"
                         aria-label="Parar áudio"
                       >
                         <img
@@ -645,9 +753,9 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
                       <button
                         type="button"
                         onClick={handleNext}
-                        disabled={!hasMediaControls}
-                        className="inline-flex h-9 w-9 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:opacity-40"
-                        aria-label="Próximo áudio"
+                        disabled={activeVideoBrandIds.length <= 1}
+                        className="s05-player-control inline-flex h-9 w-9 cursor-pointer appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition disabled:cursor-default disabled:opacity-40"
+                        aria-label="Próximo vídeo"
                       >
                         <img
                           src="/assets/icon/right-2-svgrepo-com.svg"
@@ -694,6 +802,14 @@ const Section05: React.FC<Section05Props> = ({ content }) => {
           animation: s05BlurIn 760ms cubic-bezier(0.22, 0.9, 0.22, 1) forwards;
           will-change: transform, opacity, filter;
           pointer-events: auto;
+        }
+        .s05-player-control:not(:disabled),
+        .s05-player-control:not(:disabled) * {
+          cursor: pointer !important;
+        }
+        .s05-player-control:disabled,
+        .s05-player-control:disabled * {
+          cursor: default !important;
         }
         @media (max-width: 639px) {
           .s05-fluid-bg,

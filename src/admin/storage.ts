@@ -9,6 +9,26 @@ const ADMIN_DRAFT_ROW_ID = "default"
 const ADMIN_DRAFTS_TABLE = "admin_drafts"
 const ADMIN_VERSIONS_TABLE = "admin_versions"
 
+const isStorageQuotaError = (error: unknown) =>
+  error instanceof DOMException &&
+  (error.name === "QuotaExceededError" ||
+    error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    error.code === 22 ||
+    error.code === 1014)
+
+const setLocalStorageWithDraftPriority = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value)
+    return
+  } catch (error) {
+    if (!isStorageQuotaError(error)) throw error
+  }
+
+  // Version history can contain repeated base64 images. Keep the current draft first.
+  localStorage.removeItem(ADMIN_VERSIONS_KEY)
+  localStorage.setItem(key, value)
+}
+
 const parseJson = <T>(raw: string | null): T | null => {
   if (!raw) return null
   try {
@@ -95,7 +115,16 @@ const withExistingMeta = <T extends TaxonomyNode | VoiceFilterAdmin>(
 
 const buildCanonicalSection04Filters = (current: VoiceFilterAdmin[]): VoiceFilterAdmin[] => {
   const regionOptions = ["NORTE", "NORDESTE", "SUDESTE", "SUL", "CENTRO-OESTE"]
-  const defaultLanguageOptions = ["INGLÊS", "ESPANHOL", "MANDARIM", "ITALIANO", "FRANCÊS", "POLONÊS", "ÁRABE"]
+  const defaultLanguageOptions = [
+    "INGLÊS",
+    "ESPANHOL",
+    "MANDARIM",
+    "ITALIANO",
+    "FRANCÊS",
+    "POLONÊS",
+    "ÁRABE",
+    "PORTUGUÊS PORTUGAL",
+  ]
   const styleOptions = ["INFANTIL", "ADOLESCENTE", "MADURA", "VOZES PRETAS"]
 
   const existingFiltersByKey = new Map(current.map((entry) => [normalizeKey(entry.name), entry]))
@@ -318,7 +347,7 @@ export const loadDraftContent = (): AdminContent => {
 }
 
 export const saveDraftContent = (content: AdminContent) => {
-  localStorage.setItem(ADMIN_DRAFT_KEY, JSON.stringify(content))
+  setLocalStorageWithDraftPriority(ADMIN_DRAFT_KEY, JSON.stringify(content))
 }
 
 export const loadVersions = (): ContentVersion[] => {
@@ -330,7 +359,22 @@ export const loadVersions = (): ContentVersion[] => {
 }
 
 export const saveVersions = (versions: ContentVersion[]) => {
-  localStorage.setItem(ADMIN_VERSIONS_KEY, JSON.stringify(versions))
+  const ordered = versions
+    .slice()
+    .sort((a, b) => {
+      const byDate = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      return byDate || b.version_number - a.version_number
+    })
+  const attempts = [ordered.slice(0, 5), ordered.slice(0, 2), ordered.slice(0, 1)]
+  for (const attempt of attempts) {
+    try {
+      localStorage.setItem(ADMIN_VERSIONS_KEY, JSON.stringify(attempt.sort((a, b) => a.version_number - b.version_number)))
+      return
+    } catch (error) {
+      if (!isStorageQuotaError(error)) throw error
+    }
+  }
+  localStorage.removeItem(ADMIN_VERSIONS_KEY)
 }
 
 type DraftRow = {
@@ -360,19 +404,21 @@ export const loadDraftContentRemote = async (): Promise<AdminContent | null> => 
   }
 }
 
-export const saveDraftContentRemote = async (content: AdminContent): Promise<void> => {
-  if (!supabaseConfigured()) return
+export const saveDraftContentRemote = async (content: AdminContent): Promise<boolean> => {
+  if (!supabaseConfigured()) return true
   try {
     const updated = await restRequest<DraftRow[]>(ADMIN_DRAFTS_TABLE, "PATCH", {
       query: `id=eq.${ADMIN_DRAFT_ROW_ID}`,
       body: { data_json: content, updated_at: new Date().toISOString() },
     })
-    if (updated.length) return
+    if (updated.length) return true
     await restRequest<DraftRow[]>(ADMIN_DRAFTS_TABLE, "POST", {
       body: [{ id: ADMIN_DRAFT_ROW_ID, data_json: content, updated_at: new Date().toISOString() }],
     })
+    return true
   } catch (error) {
     console.error("Failed to save admin draft to Supabase", error)
+    return false
   }
 }
 
@@ -380,12 +426,14 @@ export const loadVersionsRemote = async (): Promise<ContentVersion[] | null> => 
   if (!supabaseConfigured()) return null
   try {
     const versions = await restRequest<ContentVersion[]>(ADMIN_VERSIONS_TABLE, "GET", {
-      query: "select=*&order=version_number.asc",
+      query: "select=*&order=version_number.desc&limit=20",
     })
-    return versions.map((entry) => ({
-      ...entry,
-      data_json: normalizeAdminContent(entry.data_json),
-    }))
+    return versions
+      .map((entry) => ({
+        ...entry,
+        data_json: normalizeAdminContent(entry.data_json),
+      }))
+      .sort((a, b) => a.version_number - b.version_number)
   } catch (error) {
     console.error("Failed to load admin versions from Supabase", error)
     return null

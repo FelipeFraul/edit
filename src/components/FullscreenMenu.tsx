@@ -133,9 +133,7 @@ export default function FullscreenMenu({ items, isLight = false }: FullscreenMen
         const target = document.getElementById(id)
         if (!target) return
         target.scrollIntoView({ behavior: "smooth", block: "start" })
-        if (window.location.hash !== href) {
-          window.history.replaceState(null, "", href)
-        }
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`)
       })
     })
   }

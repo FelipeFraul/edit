@@ -589,20 +589,8 @@ const Section04: React.FC<Section04Props> = ({ content, talents = [] }) => {
     return encodeURI(mapped).replace(/#/g, "%23")
   }
 
-  const normalizeIdiomaAudioSource = (value?: string) => {
-    const raw = (value ?? "").trim()
-    if (!raw) return ""
-    const mappedRoot = raw.replace("/assets/audios/regiao/", "/assets/audios/idioma/")
-    const prefix = "/assets/audios/idioma/"
-    if (!mappedRoot.startsWith(prefix)) return mappedRoot
-
-    const rest = mappedRoot.slice(prefix.length)
-    const parts = rest.split("/").filter(Boolean)
-    const languageFolder = parts[0] ?? ""
-    const fileName = parts[parts.length - 1] ?? ""
-    if (!languageFolder || !fileName) return mappedRoot
-
-    const languageKey = normalizeLookup(languageFolder)
+  const getIdiomaAudioFolder = (value?: string) => {
+    const key = normalizeLookup(value ?? "")
     const folderByLanguage: Record<string, string> = {
       INGLES: "INGLÊS",
       ESPANHOL: "ESPANHOL",
@@ -613,9 +601,57 @@ const Section04: React.FC<Section04Props> = ({ content, talents = [] }) => {
       POLONIA: "POLÔNIA",
       POLONES: "POLÔNIA",
       PORTUGUESPORTUGAL: "PORTUGUÊS PORT",
+      PORTUGUESPORT: "PORTUGUÊS PORT",
       PORTUGUESPT: "PORTUGUÊS PORT",
     }
-    const folder = folderByLanguage[languageKey] ?? languageFolder
+    return folderByLanguage[key] ?? ""
+  }
+
+  const inferIdiomaAudioFolder = (source: string, hint?: string) => {
+    const hintedFolder = getIdiomaAudioFolder(hint)
+    if (hintedFolder) return hintedFolder
+
+    const text = normalizeLookup(source)
+    const aliases: Record<string, string[]> = {
+      INGLES: ["INGLES", "ENGLISH", "ENG", " EN "],
+      ESPANHOL: ["ESPANHOL", "ESPANOL", "SPANISH", " ESP ", " ES "],
+      FRANCES: ["FRANCES", "FRENCH"],
+      ITALIANO: ["ITALIANO", "ITALIAN"],
+      MANDARIM: ["MANDARIM", "MANDARIN", "CHINESE"],
+      ARABE: ["ARABE", "ARABIC", "ARAB"],
+      POLONES: ["POLONES", "POLONIA", "POLISH"],
+      PORTUGUESPORTUGAL: ["PORTUGUESPORTUGAL", "PORTUGUESPORT", "PORTUGAL"],
+    }
+    const language = Object.entries(aliases).find(([, terms]) =>
+      terms.some((term) => text.includes(normalizeLookup(term)))
+    )?.[0]
+    return getIdiomaAudioFolder(language)
+  }
+
+  const normalizeIdiomaAudioSource = (value?: string, idiomaHint?: string) => {
+    const raw = (value ?? "").trim()
+    if (!raw) return ""
+    const mappedRoot = raw.replace("/assets/audios/regiao/", "/assets/audios/idioma/")
+    const prefix = "/assets/audios/idioma/"
+    const audioPrefix = "/assets/audios/"
+    if (!mappedRoot.startsWith(prefix)) {
+      if (!mappedRoot.startsWith(audioPrefix)) return mappedRoot
+      const rest = mappedRoot.slice(audioPrefix.length)
+      const parts = rest.split("/").filter(Boolean)
+      const fileName = parts[parts.length - 1] ?? ""
+      const hasNestedFolder = parts.length > 1
+      const folder = hasNestedFolder ? "" : inferIdiomaAudioFolder(`${rest} ${fileName}`, idiomaHint)
+      return folder && fileName ? `${prefix}${folder}/${fileName}` : mappedRoot
+    }
+
+    const rest = mappedRoot.slice(prefix.length)
+    const parts = rest.split("/").filter(Boolean)
+    const languageFolder = parts[0] ?? ""
+    const fileName = parts[parts.length - 1] ?? ""
+    if (!languageFolder || !fileName) return mappedRoot
+
+    const languageKey = normalizeLookup(languageFolder)
+    const folder = getIdiomaAudioFolder(languageKey) || languageFolder
     return `${prefix}${folder}/${fileName}`
   }
 
@@ -734,11 +770,9 @@ const idiomaFamilies: Record<string, string[]> = {
   "INGLÃŠS": ["AMERICANO", "BRITÃ‚NICO", "AUSTRALIANO", "CANADENSE", "IRLANDÃŠS", "ESCOCÃŠS"],
   "ESPANHOL": ["ESPANHA", "LATINO", "RIOPLATENSE", "CARIBENHO", "MEXICANO", "ANDINO", "CHILENO", "COLOMBIANO"],
   "FRANCÃŠS": ["FRANÃ‡A", "CANADÃ (QUEBEC)", "BÃ‰LGICA", "SUÃÃ‡A"],
-  "ALEMÃƒO": ["ALEMANHA", "ÃUSTRIA", "SUÃÃ‡A"],
   "ITALIANO": ["ITÃLIA (PADRÃƒO)", "NORTE", "SUL"],
   "ÃRABE": ["PADRÃƒO (MSA)", "EGÃPCIO", "LEVANTINO", "GOLFO", "MAGREBINO"],
   "MANDARIM": ["PUTONGHUA (PADRÃƒO)", "TAIWAN", "SINGAPURA"],
-  "JAPONÃŠS": ["TOKYO (PADRÃƒO)", "KANSAI"],
 }
 
 const timbreAgeRanges: Record<string, string[]> = {
@@ -780,7 +814,7 @@ const voiceFilters: VoiceFilter[] = [
     title: "IDIOMA",
     iconSrc: "/assets/icon/search-globe-svgrepo-com.svg",
     subtitle: "FILTRO ESTRUTURAL",
-    items: ["INGLÃŠS", "ESPANHOL", "FRANCÃŠS", "ALEMÃƒO", "ITALIANO", "ÃRABE", "MANDARIM", "JAPONÃŠS"],
+    items: ["INGLÃŠS", "ESPANHOL", "FRANCÃŠS", "ITALIANO", "ÃRABE", "MANDARIM", "PORTUGUÃŠS PORTUGAL"],
     hint: "AMPLIA O ALCANCE NACIONAL E INTERNACIONAL.",
   },
   {
@@ -827,7 +861,7 @@ const voiceFilters: VoiceFilter[] = [
         : []
 
   const regionRows = ["NORTE", "NORDESTE", "SUDESTE", "SUL", "CENTRO-OESTE"]
-  const idiomaRows = ["INGLES", "ESPANHOL", "MANDARIM", "ITALIANO", "FRANCES", "POLONES", "ARABE"]
+  const idiomaRows = ["INGLES", "ESPANHOL", "MANDARIM", "ITALIANO", "FRANCES", "POLONES", "ARABE", "PORTUGUÊS PORTUGAL"]
   const genderRows = ["MASCULINA", "FEMININA"]
 
   const secondaryItemsByFilter: Record<string, Record<string, string[]>> = {
@@ -1020,15 +1054,19 @@ const voiceFilters: VoiceFilter[] = [
     const result = talents
       .filter((talent: VoiceTalentAdmin) => talent.is_active && !talent.deleted_at)
       .map((talent: VoiceTalentAdmin) => {
-        const audioSource =
-          selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS"
-            ? normalizeIdiomaAudioSource(talent.audioFile)
-            : talent.audioFile
-        const audioFile = normalizeAudioSrc(audioSource)
         const assignments = talent.assignments ?? {}
         const scopedPaths = aliasKeys.flatMap((key) => (assignments as Record<string, string[][]>)[key] ?? [])
         const allPaths = Object.values(assignments).flat()
         const targetPaths = scopedPaths.length > 0 ? scopedPaths : allPaths
+        const idiomaHint = selectedThirdItem ?? targetPaths.flat().find((part) => {
+          const normalized = normalizeLookup(part)
+          return normalized !== "MASCULINA" && normalized !== "FEMININA"
+        })
+        const audioSource =
+          selectedFilterKey === "IDIOMA" || selectedFilterKey === "IDIOMAS"
+            ? normalizeIdiomaAudioSource(talent.audioFile, idiomaHint)
+            : talent.audioFile
+        const audioFile = normalizeAudioSrc(audioSource)
 
         const normalizedAudioContext = normalizeLookup(`${audioFile} ${talent.audioName ?? ""} ${talent.name ?? ""}`)
         const selectedGenderTerm = selectedSecondItem ? normalizeLookup(selectedSecondItem) : ""
@@ -1160,6 +1198,55 @@ const voiceFilters: VoiceFilter[] = [
       setIsVoicePlaying(false)
     })
   }
+
+  const getVoiceDownloadName = (voiceName: string, audioFile: string) => {
+    const fileName = decodeURIComponent(audioFile.split(/[?#]/)[0]?.split("/").pop() ?? "").trim()
+    return fileName || `${voiceName}.mp3`
+  }
+
+  const renderVoiceActions = (voiceName: string) => {
+    const audioFile = voiceAudioByName.get(normalizeLookup(voiceName))
+    const isSelected = selectedVoiceName === voiceName
+    const actionClass = `inline-flex h-7 w-7 items-center justify-center rounded-none border text-[10px] text-white ${
+      isSelected ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
+    }`
+
+    return (
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          className={actionClass}
+          aria-label={`Ouvir ${voiceName}`}
+          onClick={() => handleVoiceToggle(voiceName)}
+        >
+          <img
+            src={isSelected && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
+            alt=""
+            aria-hidden="true"
+            className="h-3.5 w-3.5 brightness-0 invert"
+            draggable={false}
+          />
+        </button>
+        {audioFile ? (
+          <a
+            href={audioFile}
+            download={getVoiceDownloadName(voiceName, audioFile)}
+            className={actionClass}
+            aria-label={`Baixar áudio de ${voiceName}`}
+            title={`Baixar áudio de ${voiceName}`}
+          >
+            <img
+              src="/assets/icon/download-svgrepo-com.svg"
+              alt=""
+              aria-hidden="true"
+              className="h-3.5 w-3.5 brightness-0 invert"
+              draggable={false}
+            />
+          </a>
+        ) : null}
+      </div>
+    )
+  }
   const isFlatVoiceMode = showVoiceColumn && !showRightColumn && !showDetailColumn
   const forcedColumnCountByFilter: Record<string, 3 | 4> = {
     REGIAO: 3,
@@ -1265,6 +1352,49 @@ const voiceFilters: VoiceFilter[] = [
   const filterBtnBase = "flex h-full min-h-0 shrink-0 items-center border px-3 py-2 text-left"
   const filterBtnIdle = "border-white/35 bg-transparent hover:border-white/35 hover:bg-transparent sm:hover:border-[#6F89FF] sm:hover:bg-[#1A245C]"
   const filterBtnSelected = "border-[#A987FF] bg-[#5A0A91]"
+  const displayLabelByKey: Record<string, string> = {
+    INGLES: "INGLÊS",
+    FRANCES: "FRANCÊS",
+    POLONES: "POLONÊS",
+    ARABE: "ÁRABE",
+    PORTUGUESPORTUGAL: "PORTUGUÊS PORTUGAL",
+    PORTUGUESPORT: "PORTUGUÊS PORTUGAL",
+    PORTUGUESPT: "PORTUGUÊS PORTUGAL",
+  }
+  const formatDisplayLabel = (value: string) => displayLabelByKey[normalizeLookup(value)] ?? value
+  const resetColumnScroll = (nextOffsets: Partial<Record<"middle" | "right" | "detail" | "voice", number>> = {}) => {
+    const resolvedOffsets = {
+      middle: nextOffsets.middle ?? 0,
+      right: nextOffsets.right ?? 0,
+      detail: nextOffsets.detail ?? 0,
+      voice: nextOffsets.voice ?? 0,
+    }
+    offsetsRef.current = resolvedOffsets
+    wheelAccumulatedDeltaRef.current = 0
+    setHoveredScrollColumn(null)
+    setMiddleColumnOffset(resolvedOffsets.middle)
+    setRightColumnOffset(resolvedOffsets.right)
+    setDetailColumnOffset(resolvedOffsets.detail)
+    setVoiceColumnOffset(resolvedOffsets.voice)
+    const proxy = rightScrollProxyRef.current
+    if (proxy) proxy.scrollTop = 0
+  }
+  const visibleOffsetForItem = (items: string[], item: string, maxOffset: number) => {
+    const index = items.findIndex((entry) => entry === item)
+    if (index < 0) return 0
+    return Math.max(0, Math.min(maxOffset, index))
+  }
+  const scrollHintColumns = isFlatVoiceMode
+    ? [
+        { key: "middle", maxOffset: maxMiddleOffset },
+        { key: "voice", maxOffset: maxVoiceOffset },
+      ]
+    : [
+        { key: "middle", maxOffset: maxMiddleOffset },
+        ...(showRightColumnFrame ? [{ key: "right", maxOffset: maxRightOffset }] : []),
+        ...(showDetailColumnFrame ? [{ key: "detail", maxOffset: maxDetailOffset }] : []),
+        ...(showVoiceColumnFrame ? [{ key: "voice", maxOffset: maxVoiceOffset }] : []),
+      ]
   const getScrollColumnFromClientX = (clientX: number): "middle" | "right" | "detail" | "voice" | null => {
     const el = gridTrapRef.current
     const gridEl = el?.firstElementChild as HTMLElement | null
@@ -1309,16 +1439,11 @@ const voiceFilters: VoiceFilter[] = [
   }, [middleColumnOffset, rightColumnOffset, detailColumnOffset, voiceColumnOffset])
 
   useEffect(() => {
-    setMiddleColumnOffset(0)
-    setRightColumnOffset(0)
-    setDetailColumnOffset(0)
-    setVoiceColumnOffset(0)
+    resetColumnScroll()
     setSelectedThirdItem(null)
     setSelectedAccentItem(null)
     setHasExplicitAccentClick(false)
     setSelectedVoiceName(null)
-    const proxy = rightScrollProxyRef.current
-    if (proxy) proxy.scrollTop = 0
   }, [openFilter])
 
   useEffect(() => {
@@ -1562,6 +1687,7 @@ const voiceFilters: VoiceFilter[] = [
                         type="button"
                         onClick={() => {
                           if (openFilter === filter.title) {
+                            resetColumnScroll()
                             setOpenFilter(null)
                             setSelectedSecondItem(null)
                             setSelectedThirdItem(null)
@@ -1569,6 +1695,7 @@ const voiceFilters: VoiceFilter[] = [
                             setHasExplicitAccentClick(false)
                             return
                           }
+                          resetColumnScroll()
                           setOpenFilter(filter.title)
                           setSelectedSecondItem(null)
                           setSelectedThirdItem(null)
@@ -1619,6 +1746,7 @@ const voiceFilters: VoiceFilter[] = [
                                   type="button"
                                   onClick={() => {
                                     if (selectedSecondItem === item) {
+                                      resetColumnScroll()
                                       setSelectedSecondItem(null)
                                       setSelectedThirdItem(null)
                                       setSelectedAccentItem(null)
@@ -1626,6 +1754,9 @@ const voiceFilters: VoiceFilter[] = [
                                       return
                                     }
                                     const hasSecondLevelForItem = secondLevelItems.length > 0
+                                    resetColumnScroll({
+                                      middle: visibleOffsetForItem(middleItemsSource, item, maxMiddleOffset),
+                                    })
                                     setSelectedSecondItem(item)
                                     setSelectedThirdItem(null)
                                     setSelectedAccentItem(null)
@@ -1634,7 +1765,7 @@ const voiceFilters: VoiceFilter[] = [
                                   className={`${filterBtnBase} ${isSelected ? filterBtnSelected : filterBtnIdle}`}
                                 >
                                   <span className="font-barlow-thin text-[12px] uppercase tracking-[0.18em] text-white/90">
-                                    {item}
+                                    {formatDisplayLabel(item)}
                                   </span>
                                 </button>
 
@@ -1652,11 +1783,16 @@ const voiceFilters: VoiceFilter[] = [
                                             type="button"
                                             onClick={() => {
                                               if (selectedThirdItem === rightItem) {
+                                                resetColumnScroll()
                                                 setSelectedThirdItem(null)
                                                 setSelectedAccentItem(null)
                                                 setHasExplicitAccentClick(false)
                                                 return
                                               }
+                                              resetColumnScroll({
+                                                middle: visibleOffsetForItem(middleItemsSource, item, maxMiddleOffset),
+                                                right: visibleOffsetForItem(secondLevelItems, rightItem, Math.max(0, secondLevelItems.length - FILTER_VISIBLE_ROWS)),
+                                              })
                                               setSelectedThirdItem(rightItem)
                                               setSelectedAccentItem(null)
                                               setHasExplicitAccentClick(!hasFourthLevelForItem)
@@ -1664,7 +1800,7 @@ const voiceFilters: VoiceFilter[] = [
                                             className={`${filterBtnBase} ${isRightSelected ? filterBtnSelected : filterBtnIdle}`}
                                           >
                                             <span className="font-barlow-thin text-[12px] uppercase tracking-[0.18em] text-white/90">
-                                              {rightItem}
+                                              {formatDisplayLabel(rightItem)}
                                             </span>
                                           </button>
 
@@ -1679,17 +1815,23 @@ const voiceFilters: VoiceFilter[] = [
                                                       type="button"
                                                       onClick={() => {
                                                         if (selectedAccentItem === detailItem) {
+                                                          resetColumnScroll()
                                                           setSelectedAccentItem(null)
                                                           setHasExplicitAccentClick(false)
                                                           return
                                                         }
+                                                        resetColumnScroll({
+                                                          middle: visibleOffsetForItem(middleItemsSource, item, maxMiddleOffset),
+                                                          right: visibleOffsetForItem(secondLevelItems, rightItem, Math.max(0, secondLevelItems.length - FILTER_VISIBLE_ROWS)),
+                                                          detail: visibleOffsetForItem(thirdLevelItems, detailItem, Math.max(0, thirdLevelItems.length - FILTER_VISIBLE_ROWS)),
+                                                        })
                                                         setSelectedAccentItem(detailItem)
                                                         setHasExplicitAccentClick(true)
                                                       }}
                                                       className={`${filterBtnBase} ${isDetailSelected ? filterBtnSelected : filterBtnIdle}`}
                                                     >
                                                       <span className="font-barlow-thin text-[11px] uppercase tracking-[0.14em] text-white/90">
-                                                        {detailItem}
+                                                        {formatDisplayLabel(detailItem)}
                                                       </span>
                                                     </button>
 
@@ -1702,22 +1844,7 @@ const voiceFilters: VoiceFilter[] = [
                                                           >
                                                             <div className="flex w-full items-center justify-between gap-2">
                                                               <span className="font-barlow-thin text-[11px] uppercase tracking-[0.14em] text-white/90">{accentVoiceName}</span>
-                                                              <button
-                                                                type="button"
-                                                                className={`inline-flex h-7 w-7 items-center justify-center rounded-none border text-[10px] text-white ${
-                                                                  selectedVoiceName === accentVoiceName ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
-                                                                }`}
-                                                                aria-label={`Ouvir ${accentVoiceName}`}
-                                                                onClick={() => handleVoiceToggle(accentVoiceName)}
-                                                              >
-                                                                <img
-                                                                  src={selectedVoiceName === accentVoiceName && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
-                                                                  alt=""
-                                                                  aria-hidden="true"
-                                                                  className="h-3.5 w-3.5 brightness-0 invert"
-                                                                  draggable={false}
-                                                                />
-                                                              </button>
+                                                              {renderVoiceActions(accentVoiceName)}
                                                             </div>
                                                           </div>
                                                         ))}
@@ -1738,22 +1865,7 @@ const voiceFilters: VoiceFilter[] = [
                                                 >
                                                   <div className="flex w-full items-center justify-between gap-2">
                                                     <span className="font-barlow-thin text-[11px] uppercase tracking-[0.14em] text-white/90">{accentVoiceName}</span>
-                                                    <button
-                                                      type="button"
-                                                      className={`inline-flex h-7 w-7 items-center justify-center rounded-none border text-[10px] text-white ${
-                                                        selectedVoiceName === accentVoiceName ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
-                                                      }`}
-                                                      aria-label={`Ouvir ${accentVoiceName}`}
-                                                      onClick={() => handleVoiceToggle(accentVoiceName)}
-                                                    >
-                                                      <img
-                                                        src={selectedVoiceName === accentVoiceName && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
-                                                        alt=""
-                                                        aria-hidden="true"
-                                                        className="h-3.5 w-3.5 brightness-0 invert"
-                                                        draggable={false}
-                                                      />
-                                                    </button>
+                                                    {renderVoiceActions(accentVoiceName)}
                                                   </div>
                                                 </div>
                                               ))}
@@ -1780,6 +1892,7 @@ const voiceFilters: VoiceFilter[] = [
                     key={filter.title}
                     type="button"
                     onClick={() => {
+                      resetColumnScroll()
                       setOpenFilter(filter.title)
                       setSelectedSecondItem(null)
                       setSelectedThirdItem(null)
@@ -1815,7 +1928,7 @@ const voiceFilters: VoiceFilter[] = [
               </div>
 
               <div ref={gridTrapRef} className="relative hidden h-full xl:block" style={{ overscrollBehavior: "contain" }}>
-                <div className="s04-enter grid h-full grid-rows-5 gap-3 pr-1" style={{ gridTemplateColumns: rightGridTemplateColumns, animationDelay: "460ms" }}>
+                <div className="s04-enter relative grid h-full grid-rows-5 gap-3 pr-1" style={{ gridTemplateColumns: rightGridTemplateColumns, animationDelay: "460ms" }}>
                   {Array.from({ length: FILTER_VISIBLE_ROWS }).map((_, itemIndex) => {
                     const middleItem = visibleMiddleItems[itemIndex]
                     const rightItem = visibleThirdColumnItems[itemIndex]
@@ -1830,6 +1943,9 @@ const voiceFilters: VoiceFilter[] = [
                               type="button"
                               onClick={() => {
                                 const hasSecondLevelForItem = (secondaryMap?.[middleItem] ?? []).length > 0
+                                resetColumnScroll({
+                                  middle: visibleOffsetForItem(middleItemsSource, middleItem, maxMiddleOffset),
+                                })
                                 setSelectedSecondItem(middleItem)
                                 setSelectedThirdItem(null)
                                 setSelectedAccentItem(null)
@@ -1837,7 +1953,7 @@ const voiceFilters: VoiceFilter[] = [
                               }}
                               className={`${filterBtnBase} ${selectedSecondItem === middleItem ? filterBtnSelected : filterBtnIdle}`}
                             >
-                              <span className="font-barlow-thin text-[12px] uppercase tracking-[0.18em] text-white/90">{middleItem}</span>
+                              <span className="font-barlow-thin text-[12px] uppercase tracking-[0.18em] text-white/90">{formatDisplayLabel(middleItem)}</span>
                             </button>
                           ) : (
                             <div className="relative flex h-full min-h-0 items-center overflow-hidden border border-white/25 bg-white/5 px-3 py-2" aria-hidden="true">
@@ -1849,22 +1965,7 @@ const voiceFilters: VoiceFilter[] = [
                             <div className={`${filterBtnBase} w-full ${selectedVoiceName === accentVoiceName ? filterBtnSelected : filterBtnIdle}`}>
                               <div className="flex w-full items-center justify-between gap-2">
                                 <span className="font-barlow-thin text-[11px] uppercase tracking-[0.14em] text-white/90">{accentVoiceName}</span>
-                                <button
-                                  type="button"
-                                  className={`inline-flex h-7 w-7 items-center justify-center rounded-none border text-[10px] text-white ${
-                                    selectedVoiceName === accentVoiceName ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
-                                  }`}
-                                  aria-label={`Ouvir ${accentVoiceName}`}
-                                  onClick={() => handleVoiceToggle(accentVoiceName)}
-                                >
-                                  <img
-                                    src={selectedVoiceName === accentVoiceName && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="h-3.5 w-3.5 brightness-0 invert"
-                                    draggable={false}
-                                  />
-                                </button>
+                                {renderVoiceActions(accentVoiceName)}
                               </div>
                             </div>
                           ) : (
@@ -1890,6 +1991,9 @@ const voiceFilters: VoiceFilter[] = [
                             type="button"
                             onClick={() => {
                               const hasSecondLevelForItem = (secondaryMap?.[middleItem] ?? []).length > 0
+                              resetColumnScroll({
+                                middle: visibleOffsetForItem(middleItemsSource, middleItem, maxMiddleOffset),
+                              })
                               setSelectedSecondItem(middleItem)
                               setSelectedThirdItem(null)
                               setSelectedAccentItem(null)
@@ -1898,7 +2002,7 @@ const voiceFilters: VoiceFilter[] = [
                             className={`${filterBtnBase} ${selectedSecondItem === middleItem ? filterBtnSelected : filterBtnIdle} ${compactCol1 ? "justify-center px-0 text-center" : ""}`}
                           >
                             <span className={`font-barlow-thin text-[12px] uppercase tracking-[0.18em] text-white/90 ${compactCol1 ? "w-full text-center" : ""}`}>
-                              {middleDisplayItem}
+                              {formatDisplayLabel(middleDisplayItem)}
                             </span>
                           </button>
                         ) : (
@@ -1913,6 +2017,12 @@ const voiceFilters: VoiceFilter[] = [
                               type="button"
                               onClick={() => {
                                 const hasFourthLevelForItem = (tertiaryMap?.[rightItem] ?? []).length > 0
+                                resetColumnScroll({
+                                  middle: selectedSecondItem
+                                    ? visibleOffsetForItem(middleItemsSource, selectedSecondItem, maxMiddleOffset)
+                                    : middleColumnOffset,
+                                  right: visibleOffsetForItem(thirdColumnItems, rightItem, maxRightOffset),
+                                })
                                 setSelectedThirdItem(rightItem)
                                 setSelectedAccentItem(null)
                                 setHasExplicitAccentClick(!hasFourthLevelForItem)
@@ -1920,7 +2030,7 @@ const voiceFilters: VoiceFilter[] = [
                               className={`${filterBtnBase} ${selectedThirdItem === rightItem ? filterBtnSelected : filterBtnIdle} ${compactCol2 ? "justify-center px-0 text-center" : ""}`}
                             >
                               <span className={`font-barlow-thin text-[12px] uppercase tracking-[0.18em] text-white/90 ${compactCol2 ? "w-full text-center" : ""}`}>
-                                {rightDisplayItem}
+                                {formatDisplayLabel(rightDisplayItem)}
                               </span>
                             </button>
                           ) : (
@@ -1939,13 +2049,22 @@ const voiceFilters: VoiceFilter[] = [
                             <button
                               type="button"
                               onClick={() => {
+                                resetColumnScroll({
+                                  middle: selectedSecondItem
+                                    ? visibleOffsetForItem(middleItemsSource, selectedSecondItem, maxMiddleOffset)
+                                    : middleColumnOffset,
+                                  right: selectedThirdItem
+                                    ? visibleOffsetForItem(thirdColumnItems, selectedThirdItem, maxRightOffset)
+                                    : rightColumnOffset,
+                                  detail: visibleOffsetForItem(fourthColumnItems, detailItem, maxDetailOffset),
+                                })
                                 setSelectedAccentItem(detailItem)
                                 setHasExplicitAccentClick(true)
                               }}
                               className={`${filterBtnBase} w-full ${selectedAccentItem === detailItem ? filterBtnSelected : filterBtnIdle} ${compactCol3 ? "justify-center px-0 text-center" : ""}`}
                             >
                               <span className={`font-barlow-thin text-[11px] uppercase tracking-[0.14em] text-white/90 ${compactCol3 ? "w-full text-center" : ""}`}>
-                                {detailDisplayItem}
+                                {formatDisplayLabel(detailDisplayItem)}
                               </span>
                             </button>
                           ) : (
@@ -1960,22 +2079,7 @@ const voiceFilters: VoiceFilter[] = [
                             <div className={`${filterBtnBase} w-full ${selectedVoiceName === accentVoiceName ? filterBtnSelected : filterBtnIdle}`}>
                               <div className="flex w-full items-center justify-between gap-2">
                                 <span className="font-barlow-thin text-[11px] uppercase tracking-[0.14em] text-white/90">{accentVoiceName}</span>
-                                <button
-                                  type="button"
-                                  className={`inline-flex h-7 w-7 items-center justify-center rounded-none border text-[10px] text-white ${
-                                    selectedVoiceName === accentVoiceName ? "border-[#A987FF] bg-[#5A0A91]" : "border-white/50"
-                                  }`}
-                                  aria-label={`Ouvir ${accentVoiceName}`}
-                                  onClick={() => handleVoiceToggle(accentVoiceName)}
-                                >
-                                  <img
-                                    src={selectedVoiceName === accentVoiceName && isVoicePlaying ? "/assets/icon/pause-svgrepo-com.svg" : "/assets/icon/play-svgrepo-com.svg"}
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="h-3.5 w-3.5 brightness-0 invert"
-                                    draggable={false}
-                                  />
-                                </button>
+                                {renderVoiceActions(accentVoiceName)}
                               </div>
                             </div>
                           ) : (
@@ -1988,6 +2092,17 @@ const voiceFilters: VoiceFilter[] = [
                     )
                   })}
 
+                  <div className="pointer-events-none absolute inset-0 grid h-full gap-3 pr-1" style={{ gridTemplateColumns: rightGridTemplateColumns }}>
+                    {scrollHintColumns.map((column) => (
+                      <div key={`scroll-hint-${column.key}`} className="relative h-full">
+                        {column.maxOffset > 0 ? (
+                          <span className="s04-scroll-hint" aria-hidden="true">
+                            <span />
+                          </span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div
                   ref={rightScrollProxyRef}
@@ -2018,6 +2133,13 @@ const voiceFilters: VoiceFilter[] = [
           0% { opacity: 0; transform: translateX(-26px); filter: blur(10px); }
           100% { opacity: 1; transform: translateX(0); filter: blur(0); }
         }
+        @keyframes s04ScrollHint {
+          0% { opacity: 0; transform: translate(-50%, 0); }
+          20% { opacity: 0.95; transform: translate(-50%, 0); }
+          52% { opacity: 0.95; transform: translate(-50%, 12px); }
+          78% { opacity: 0.7; transform: translate(-50%, 6px); }
+          100% { opacity: 0; transform: translate(-50%, 18px); }
+        }
         .s04-enter {
           opacity: 0;
           transform: translateX(-26px);
@@ -2028,6 +2150,27 @@ const voiceFilters: VoiceFilter[] = [
           animation: s04BlurIn 760ms cubic-bezier(0.22, 0.9, 0.22, 1) forwards;
           will-change: transform, opacity, filter;
           pointer-events: auto;
+        }
+        .s04-scroll-hint {
+          position: absolute;
+          left: 50%;
+          bottom: -26px;
+          z-index: 30;
+          display: inline-flex;
+          height: 18px;
+          width: 18px;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          animation: s04ScrollHint 2400ms cubic-bezier(0.22, 0.9, 0.22, 1) 980ms 1 both;
+        }
+        .s04-scroll-hint > span {
+          display: block;
+          height: 10px;
+          width: 10px;
+          border-right: 1.5px solid rgba(255,255,255,0.85);
+          border-bottom: 1.5px solid rgba(255,255,255,0.85);
+          transform: rotate(45deg) translate(-1px, -1px);
         }
         @media (max-width: 639px) {
           .s04-enter {
